@@ -61,8 +61,8 @@ export class VehicleController {
     const group = new THREE.Group();
     group.name = 'CVR_College_Bus';
 
-    const width = 2.8;
-    const height = 3.3;
+    const width = 2.5;
+    const height = 3.1;
     const depth = 10.5;
 
     // Body Materials
@@ -281,14 +281,14 @@ export class VehicleController {
     this.vehicles.set('cvr-bus', vehicleData);
   }
 
-  // --- CAMPUS CAR BUILDER (ferrari.glb / Mint Campus Car) ---
+  // --- CAMPUS CAR BUILDER (ferrari.glb / Mint Campus Car: 1.45m tall, 4.1m long) ---
   private createCampusCar(x: number, y: number, z: number, initialYaw: number): void {
     const group = new THREE.Group();
     group.name = 'Campus_Car';
 
-    const width = 2.1;
-    const height = 1.35;
-    const depth = 4.6;
+    const width = 1.85;
+    const height = 1.45;
+    const depth = 4.1;
 
     // Create Rapier body immediately so physics is active
     const { body, collider } = this.physics.createDynamicBox(x, y, z, width, height, depth, 1400);
@@ -310,8 +310,8 @@ export class VehicleController {
       steerAngle: 0,
       turnSpeed: 2.1,
       yaw: initialYaw,
-      cameraDistance: 8.5,
-      cameraHeight: 2.6,
+      cameraDistance: 8.0,
+      cameraHeight: 2.4,
       dimensions: { width, height, depth },
       exitOffset: { x: -1.8, y: 0, z: 0 },
     };
@@ -349,15 +349,16 @@ export class VehicleController {
           }
         });
 
-        // Compute model bounds to align and scale
+        // Compute model bounds to align and scale to exact 1.45m height and 4.1m length
         const box = new THREE.Box3().setFromObject(carModel);
         const size = box.getSize(new THREE.Vector3());
-        const scale = 4.6 / Math.max(size.x, size.z, 0.1);
+        const scale = Math.min(depth / (size.z || 1.0), height / (size.y || 1.0));
         carModel.scale.setScalar(scale);
 
-        // Center car model on origin
-        const center = box.getCenter(new THREE.Vector3());
-        carModel.position.set(-center.x * scale, -box.min.y * scale - height / 2 + 0.1, -center.z * scale);
+        // Center car model on origin and place wheels at base
+        const scaledBox = new THREE.Box3().setFromObject(carModel);
+        const center = scaledBox.getCenter(new THREE.Vector3());
+        carModel.position.set(-center.x, -scaledBox.min.y - height / 2 + 0.05, -center.z);
         // Face forward (-Z)
         carModel.rotation.y = Math.PI;
 
@@ -366,7 +367,6 @@ export class VehicleController {
       undefined,
       (err) => {
         console.warn('Fallback car model used:', err);
-        // Procedural low-poly car fallback
         const bodyMesh = new THREE.Mesh(
           new THREE.BoxGeometry(width, height * 0.7, depth),
           new THREE.MeshStandardMaterial({ color: 0x10b981, roughness: 0.2, metalness: 0.6 })
@@ -377,13 +377,13 @@ export class VehicleController {
     );
   }
 
-  // --- CAMPUS SCOOTER BUILDER (scooter.glb) ---
+  // --- CAMPUS SCOOTER BUILDER (Activa proportions: 1.15m tall, 1.85m long, dark metallic) ---
   private createCampusScooter(x: number, y: number, z: number, initialYaw: number): void {
     const group = new THREE.Group();
     group.name = 'Campus_Scooter';
 
-    const width = 0.9;
-    const height = 1.25;
+    const width = 0.75;
+    const height = 1.15;
     const depth = 1.85;
 
     const { body, collider } = this.physics.createDynamicBox(x, y, z, width, height, depth, 220);
@@ -405,8 +405,8 @@ export class VehicleController {
       steerAngle: 0,
       turnSpeed: 2.8,
       yaw: initialYaw,
-      cameraDistance: 6.8,
-      cameraHeight: 2.2,
+      cameraDistance: 6.0,
+      cameraHeight: 1.9,
       dimensions: { width, height, depth },
       exitOffset: { x: -1.2, y: 0, z: 0 },
     };
@@ -417,15 +417,44 @@ export class VehicleController {
       '/models/scooter.glb',
       (gltf) => {
         const scooterModel = gltf.scene;
-        scooterModel.scale.setScalar(2.2);
-        scooterModel.position.set(0, -height / 2 + 0.35, 0);
+
+        // Metric normalization: 1.15m height, 1.85m length
+        const box = new THREE.Box3().setFromObject(scooterModel);
+        const size = box.getSize(new THREE.Vector3());
+        const scale = Math.min(height / (size.y || 1.0), depth / (size.z || 1.0));
+        scooterModel.scale.setScalar(scale);
+
+        const scaledBox = new THREE.Box3().setFromObject(scooterModel);
+        const center = scaledBox.getCenter(new THREE.Vector3());
+        scooterModel.position.set(-center.x, -scaledBox.min.y - height / 2 + 0.05, -center.z);
         scooterModel.rotation.y = Math.PI;
 
+        // Realistic sleek dark-metallic silver / graphite commuter scooter (Activa styling)
         scooterModel.traverse((child) => {
           if (child instanceof THREE.Mesh) {
             child.castShadow = true;
             child.receiveShadow = true;
             child.frustumCulled = false;
+
+            const name = child.name.toLowerCase();
+            if (name.includes('body') || name.includes('frame') || (!name.includes('wheel') && !name.includes('tire') && !name.includes('seat'))) {
+              child.material = new THREE.MeshStandardMaterial({
+                color: 0x334155, // Dark Slate / Gunmetal Grey Metallic
+                metalness: 0.8,
+                roughness: 0.25,
+              });
+            } else if (name.includes('seat')) {
+              child.material = new THREE.MeshStandardMaterial({
+                color: 0x18181b, // Black textured leather
+                roughness: 0.85,
+              });
+            } else {
+              child.material = new THREE.MeshStandardMaterial({
+                color: 0x27272a, // Dark rubber wheels and rim
+                roughness: 0.6,
+                metalness: 0.4,
+              });
+            }
           }
         });
 
