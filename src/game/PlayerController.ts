@@ -22,12 +22,14 @@ export class PlayerController {
   private readonly sprintSpeed = 10.5;
   private readonly jumpVelocity = 7.0;
   private readonly acceleration = 18.0;
+  private readonly deceleration = 9.5;
 
   // State
   public isGrounded = true;
   public isSprinting = false;
   public currentSpeed = 0;
   private walkCycle = 0;
+  private groundGraceTimer = 0;
 
   // Rigged GLTF Model & Animation Mixer
   private mixer: THREE.AnimationMixer | null = null;
@@ -456,6 +458,18 @@ export class PlayerController {
 
   public setVisible(visible: boolean): void {
     this.mesh.visible = visible;
+    if (!visible) {
+      // Cleanly transition to idle state when player is hidden (e.g. inside vehicle)
+      const idleAction =
+        this.animations.get('idle') ||
+        this.animations.get('Idle') ||
+        this.animations.get('IDLE');
+      if (idleAction && this.currentAction && this.currentAction !== idleAction) {
+        this.currentAction.stop();
+        idleAction.reset().play();
+        this.currentAction = idleAction;
+      }
+    }
   }
 
   public getRotationY(): number {
@@ -464,16 +478,51 @@ export class PlayerController {
 
   private checkGrounded(): boolean {
     const pos = this.rigidBody.translation();
+    const vel = this.rigidBody.linvel();
+
+    // If ascending from an intentional jump, character is airborne
+    if (vel.y > 1.0) {
+      return false;
+    }
+
     const rayOrigin = {
       x: pos.x,
       y: pos.y - this.capsuleHalfHeight,
       z: pos.z,
     };
     const rayDir = { x: 0, y: -1, z: 0 };
-    const maxDistance = this.capsuleRadius + 0.12;
+    // Center ray tolerance: capsuleRadius (0.35m) + 0.18m margin (smooth traversal over 18cm curb edges)
+    const maxDistance = this.capsuleRadius + 0.18;
 
-    const hit = this.physics.castRay(rayOrigin, rayDir, maxDistance, true, this.collider);
-    return hit !== null && hit.timeOfImpact <= maxDistance;
+    // 1. Primary center ray
+    const centerHit = this.physics.castRay(rayOrigin, rayDir, maxDistance, true, this.collider);
+    if (centerHit !== null && centerHit.timeOfImpact <= maxDistance) {
+      return true;
+    }
+
+    // 2. Multi-point edge probes around the capsule foot circle (0.18m offset from center).
+    // Prevents false airborne state and jitter when character's center overhangs a curb, step, or sidewalk edge.
+    const probeOffset = 0.18;
+    const probeDeltas = [
+      { dx: probeOffset, dz: 0 },
+      { dx: -probeOffset, dz: 0 },
+      { dx: 0, dz: probeOffset },
+      { dx: 0, dz: -probeOffset },
+    ];
+
+    for (let i = 0; i < probeDeltas.length; i++) {
+      const probeOrigin = {
+        x: pos.x + probeDeltas[i].dx,
+        y: pos.y - this.capsuleHalfHeight,
+        z: pos.z + probeDeltas[i].dz,
+      };
+      const probeHit = this.physics.castRay(probeOrigin, rayDir, maxDistance, true, this.collider);
+      if (probeHit !== null && probeHit.timeOfImpact <= maxDistance) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   public physicsUpdate(dt: number, cameraAzimuth: number): void {
@@ -492,7 +541,16 @@ export class PlayerController {
       return;
     }
 
-    this.isGrounded = this.checkGrounded();
+    const rawGrounded = this.checkGrounded();
+    if (rawGrounded) {
+      this.isGrounded = true;
+      this.groundGraceTimer = 0.08; // 80ms coyote time buffer for smooth curb traversal
+    } else {
+      this.groundGraceTimer = Math.max(0, this.groundGraceTimer - dt);
+      if (this.groundGraceTimer <= 0) {
+        this.isGrounded = false;
+      }
+    }
 
     let inputForward = 0;
     let inputRight = 0;
@@ -532,17 +590,18 @@ export class PlayerController {
       let angleDiff = targetAngle - this.mesh.rotation.y;
       while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
       while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
-      this.mesh.rotation.y += angleDiff * Math.min(1.0, 14.0 * dt);
+      this.mesh.rotation.y += angleDiff * Math.min(1.0, 13.5 * dt);
     }
 
-    const lerpRate = hasInput ? this.acceleration * dt : 20.0 * dt;
+    const lerpRate = hasInput ? this.acceleration * dt : this.deceleration * dt;
     const newVx = THREE.MathUtils.lerp(currentVel.x, targetVx, Math.min(1.0, lerpRate));
     const newVz = THREE.MathUtils.lerp(currentVel.z, targetVz, Math.min(1.0, lerpRate));
 
     let newVy = currentVel.y;
-    if (this.keys['Space'] && this.isGrounded) {
+    if (this.keys['Space'] && (this.isGrounded || this.groundGraceTimer > 0)) {
       newVy = this.jumpVelocity;
       this.isGrounded = false;
+      this.groundGraceTimer = 0;
     }
 
     this.rigidBody.setLinvel({ x: newVx, y: newVy, z: newVz }, true);
@@ -557,7 +616,7 @@ export class PlayerController {
   }
 
   /**
-   * Smoothly cross-fades rigged GLTF animations (idle <-> walk <-> run)
+   * Smoothly cross-fades rigged GLTF animations (idle <-> walk <-> run <-> jump/airborne fallback)
    */
   private updateGLTFAnimation(dt: number, hasInput: boolean): void {
     if (!this.mixer) return;
@@ -565,16 +624,40 @@ export class PlayerController {
     let targetActionName = 'idle';
     let timeScale = 1.0;
 
+    const hasJumpAction =
+      this.animations.has('jump') ||
+      this.animations.has('Jump') ||
+      this.animations.has('JUMP');
+
     if (!this.isGrounded) {
-      targetActionName = 'idle';
+      if (hasJumpAction) {
+        targetActionName = 'jump';
+        timeScale = 1.0;
+      } else {
+        // Safe airborne fallback when current avatar has no dedicated jump animation clip:
+        // If moving with momentum, maintain airborne stride rather than snapping to a grounded standing idle
+        if (this.currentSpeed > 3.0) {
+          targetActionName = 'run';
+          timeScale = 0.8;
+        } else if (this.currentSpeed > 0.4) {
+          targetActionName = 'walk';
+          timeScale = 0.85;
+        } else {
+          targetActionName = 'idle';
+          timeScale = 1.0;
+        }
+      }
     } else if (hasInput && this.currentSpeed > 0.3) {
-      if (this.isSprinting) {
+      if (this.isSprinting && this.currentSpeed > 4.5) {
         targetActionName = 'run';
-        timeScale = Math.min(this.currentSpeed / 8.0, 1.4);
+        timeScale = THREE.MathUtils.clamp(this.currentSpeed / 7.2, 0.8, 1.35);
       } else {
         targetActionName = 'walk';
-        timeScale = Math.min(this.currentSpeed / 4.5, 1.25);
+        timeScale = THREE.MathUtils.clamp(this.currentSpeed / 4.2, 0.75, 1.25);
       }
+    } else {
+      targetActionName = 'idle';
+      timeScale = 1.0;
     }
 
     const targetAction =
@@ -583,13 +666,31 @@ export class PlayerController {
       this.animations.get(targetActionName.charAt(0).toUpperCase() + targetActionName.slice(1));
 
     if (targetAction && targetAction !== this.currentAction) {
+      const prevAction = this.currentAction;
+      const isLocomotionTransition =
+        prevAction &&
+        ((prevAction === this.animations.get('walk') && targetAction === this.animations.get('run')) ||
+         (prevAction === this.animations.get('run') && targetAction === this.animations.get('walk')));
+
       targetAction.reset();
       targetAction.timeScale = timeScale;
-      targetAction.fadeIn(0.2);
+
+      // Stride phase synchronization: match foot phase between walk <-> run to eliminate leg snapping
+      if (isLocomotionTransition && prevAction) {
+        const prevDuration = prevAction.getClip().duration;
+        const targetDuration = targetAction.getClip().duration;
+        if (prevDuration > 0 && targetDuration > 0) {
+          const stridePhase = (prevAction.time / prevDuration) % 1.0;
+          targetAction.time = stridePhase * targetDuration;
+        }
+      }
+
+      const fadeDuration = isLocomotionTransition ? 0.25 : 0.2;
+      targetAction.fadeIn(fadeDuration);
       targetAction.play();
 
-      if (this.currentAction) {
-        this.currentAction.fadeOut(0.2);
+      if (prevAction) {
+        prevAction.fadeOut(fadeDuration);
       }
       this.currentAction = targetAction;
     } else if (this.currentAction) {
@@ -612,6 +713,13 @@ export class PlayerController {
       this.leftLegGroup.rotation.x = -legSwing;
       this.rightLegGroup.rotation.x = legSwing;
       this.torsoGroup.position.y = 0.85 + Math.abs(Math.sin(this.walkCycle * 2)) * 0.04;
+    } else if (!this.isGrounded) {
+      // Natural airborne pose for procedural student: arms slightly out, legs staggered
+      this.leftArmGroup.rotation.x = THREE.MathUtils.lerp(this.leftArmGroup.rotation.x, -0.5, 10 * dt);
+      this.rightArmGroup.rotation.x = THREE.MathUtils.lerp(this.rightArmGroup.rotation.x, -0.5, 10 * dt);
+      this.leftLegGroup.rotation.x = THREE.MathUtils.lerp(this.leftLegGroup.rotation.x, 0.35, 10 * dt);
+      this.rightLegGroup.rotation.x = THREE.MathUtils.lerp(this.rightLegGroup.rotation.x, -0.25, 10 * dt);
+      this.torsoGroup.position.y = 0.88;
     } else {
       this.leftArmGroup.rotation.x *= 0.85;
       this.rightArmGroup.rotation.x *= 0.85;
