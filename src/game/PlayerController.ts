@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { PhysicsWorld } from './PhysicsWorld';
 import { CharacterPreset, CHARACTER_PRESETS } from '../types/game';
 
@@ -61,6 +62,9 @@ export class PlayerController {
   constructor(scene: THREE.Scene, physics: PhysicsWorld) {
     this.physics = physics;
     this.gltfLoader = new GLTFLoader();
+    const dracoLoader = new DRACOLoader();
+    dracoLoader.setDecoderPath('/draco/gltf/');
+    this.gltfLoader.setDRACOLoader(dracoLoader);
 
     // 1. Create Rapier Physics Dynamic Capsule
     const { body, collider } = this.physics.createDynamicCapsule(
@@ -85,7 +89,7 @@ export class PlayerController {
     this.mesh.add(this.proceduralGroup);
 
     // 4. Initialize Student Character from Presets / Cache
-    const savedPresetId = (typeof localStorage !== 'undefined' && localStorage.getItem('cvr_selected_avatar_id')) || 'aarav-cse';
+    const savedPresetId = (typeof localStorage !== 'undefined' && localStorage.getItem('cvr_selected_avatar_id')) || 'remy';
     this.initCharacters(savedPresetId);
 
     // 5. Setup Keyboard Listeners
@@ -95,7 +99,7 @@ export class PlayerController {
   /**
    * Initializes shared animations and sets initial character preset
    */
-  public async initCharacters(initialPresetId = 'aarav-cse'): Promise<void> {
+  public async initCharacters(initialPresetId = 'remy'): Promise<void> {
     try {
       // Preload avatar_male.glb to populate shared standard Mixamo clips (idle, walk, run)
       const maleGltf = await this.gltfLoader.loadAsync('/models/avatar_male.glb');
@@ -204,13 +208,13 @@ export class PlayerController {
         }
       });
 
-      // 5. Attach Stylized 3D College Backpack to Spine Bone
+      // 5. Attach Stylized 3D College Backpack to Spine Bone (if enabled for preset)
       const spineBone =
         model.getObjectByName('mixamorigSpine1') ||
         model.getObjectByName('mixamorig:Spine1') ||
         model.getObjectByName('mixamorigSpine') ||
         model.getObjectByName('mixamorig:Spine');
-      if (spineBone) {
+      if (spineBone && (!preset || preset.hasBackpack !== false)) {
         const backpack = this.createSpineBackpackMesh(preset ? preset.outfit.backpackColor : '#f97316');
         spineBone.add(backpack);
       }
@@ -228,7 +232,7 @@ export class PlayerController {
         gltf.animations.forEach((clip) => {
           clipsToBind.push(clip);
           const lower = clip.name.toLowerCase();
-          if (['idle', 'walk', 'run'].includes(lower)) {
+          if (['idle', 'walk', 'run', 'jump'].includes(lower)) {
             this.sharedClips.set(lower, clip);
           }
         });
@@ -265,6 +269,11 @@ export class PlayerController {
       clipsToBind.forEach((clip) => {
         if (this.mixer) {
           const action = this.mixer.clipAction(clip);
+          const lower = clip.name.toLowerCase();
+          if (lower === 'jump') {
+            action.setLoop(THREE.LoopOnce, 1);
+            action.clampWhenFinished = true;
+          }
           this.animations.set(clip.name.toLowerCase(), action);
           this.animations.set(clip.name, action);
         }

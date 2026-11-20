@@ -15,8 +15,8 @@ const INITIAL_GAME_STATE: GameState = {
   isSprinting: false,
   isGrounded: true,
   isPointerLocked: false,
-  activeCharacterId: 'aarav-cse',
-  activeCharacterName: 'Aarav',
+  activeCharacterId: 'remy',
+  activeCharacterName: 'Remy',
 };
 
 export const App: React.FC = () => {
