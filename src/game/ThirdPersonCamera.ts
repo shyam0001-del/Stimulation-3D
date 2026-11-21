@@ -6,20 +6,20 @@ export class ThirdPersonCamera {
 
   // Camera Spherical Angles
   public theta = Math.PI; // Horizontal azimuth angle (PI radians = behind player looking South down 12M Spine)
-  public phi = 1.18; // Vertical elevation angle (radians, ~67 degrees)
-  public distance = 7.5; // Current zoom distance
-  private targetDistance = 7.5;
+  public phi = 1.25; // Vertical elevation angle (radians, ~71 degrees)
+  public distance = 3.4; // Current zoom distance (calibrated for GTA-style third-person on-foot view)
+  private targetDistance = 3.4;
 
-  private readonly minDistance = 2.5;
-  private readonly maxDistance = 18.0;
+  private readonly minDistance = 1.8;
+  private readonly maxDistance = 14.0;
 
   private readonly minPhi = 0.15; // Overhead limit
   private readonly maxPhi = 1.45; // Low-angle limit (prevents ground dip)
   private readonly minGroundY = 0.8; // Minimum absolute Y coordinate
 
   // Damping positions
-  private currentTarget = new THREE.Vector3(25, 1.5, -168);
-  private currentPosition = new THREE.Vector3(25, 4.2, -176);
+  private currentTarget = new THREE.Vector3(25, 1.25, -168);
+  private currentPosition = new THREE.Vector3(25, 2.3, -171.2);
 
   // Mouse / Pointer State
   public isPointerLocked = false;
@@ -37,16 +37,16 @@ export class ThirdPersonCamera {
   constructor(domElement: HTMLElement) {
     this.domElement = domElement;
 
-    // 1. Perspective Camera
+    // 1. Perspective Camera (49° FOV for natural third-person cinematic perspective)
     this.camera = new THREE.PerspectiveCamera(
-      55,
+      49,
       window.innerWidth / window.innerHeight,
       0.1,
       500
     );
 
-    // Initial position behind default spawn (spawn is at x: 141, z: 48, camera behind at x: 149)
-    this.currentPosition.set(149, 4.2, 48);
+    // Initial position behind default spawn (spawn at x: 25, z: -168, camera behind at x: 25, z: -171.2)
+    this.currentPosition.set(25, 2.3, -171.2);
     this.camera.position.copy(this.currentPosition);
 
     // 2. Event Listeners Setup
@@ -131,12 +131,14 @@ export class ThirdPersonCamera {
    */
   public update(
     dt: number,
-    targetPos: { x: number; y: number; z: number }
+    targetPos: { x: number; y: number; z: number },
+    targetHeightOffset = 0.42,
+    distanceOverride?: number
   ): void {
-    // 1. Character look-at target (focus on player chest/torso center)
+    // 1. Character look-at target (focus on player upper chest / sternum center)
     const desiredTarget = new THREE.Vector3(
       targetPos.x,
-      targetPos.y + 0.15,
+      targetPos.y + targetHeightOffset,
       targetPos.z
     );
 
@@ -144,11 +146,12 @@ export class ThirdPersonCamera {
     const targetLerp = 1 - Math.exp(-18.0 * dt);
     this.currentTarget.lerp(desiredTarget, THREE.MathUtils.clamp(targetLerp, 0, 1));
 
-    // 2. Smooth zoom damping
+    // 2. Smooth zoom damping (allows distanceOverride for vehicles)
     const zoomLerp = 1 - Math.exp(-12.0 * dt);
+    const targetDist = distanceOverride !== undefined ? distanceOverride : this.targetDistance;
     this.distance = THREE.MathUtils.lerp(
       this.distance,
-      this.targetDistance,
+      targetDist,
       THREE.MathUtils.clamp(zoomLerp, 0, 1)
     );
 

@@ -219,12 +219,13 @@ export class GameEngine {
       focusPos = { x: vPos.x, y: vPos.y + 0.6, z: vPos.z };
       activeSpeed = Math.abs(v.speed);
 
-      // Follow vehicle with camera
-      this.cameraController.update(frameDelta, focusPos);
+      // Follow vehicle with camera (distance = 7.5m for clear vehicle framing)
+      this.cameraController.update(frameDelta, focusPos, 0.4, 7.5);
     } else {
       const pPos = this.player.getPosition();
       focusPos = { x: pPos.x, y: pPos.y, z: pPos.z };
-      this.cameraController.update(frameDelta, focusPos);
+      // Follow character with camera (distance = 3.4m, upper chest target +0.42m)
+      this.cameraController.update(frameDelta, focusPos, 0.42);
     }
 
     // Dynamic sunlight shadow camera tracking

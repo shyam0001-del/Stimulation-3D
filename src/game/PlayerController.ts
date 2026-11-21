@@ -207,20 +207,43 @@ export class PlayerController {
               cloned.color = new THREE.Color(preset.outfit.primaryColor);
               child.material = cloned;
             } else if (preset.id === 'remy') {
-              // Fix Remy's hair cards & eyelashes: eliminate transparency sorting, halos & skybox bleed
+              // Remy PBR Material Realism: normal maps, soft fabric reflections & hair alpha cutout
               const mats = Array.isArray(child.material) ? child.material : [child.material];
               mats.forEach((mat) => {
+                const stdMat = mat as THREE.MeshStandardMaterial;
                 if (child.name === 'Hair' || mat.name === 'Hairmat') {
                   mat.transparent = false;
                   mat.depthWrite = true;
                   mat.alphaTest = 0.5;
                   mat.alphaToCoverage = true;
+                  if (stdMat.normalMap) stdMat.normalScale.set(0.6, 0.6);
+                  stdMat.envMapIntensity = 0.4;
                   mat.needsUpdate = true;
                 } else if (child.name === 'Eyelashes' || mat.name === 'Eyelashmat') {
                   mat.transparent = false;
                   mat.depthWrite = true;
                   mat.alphaTest = 0.7;
                   mat.alphaToCoverage = true;
+                  mat.needsUpdate = true;
+                } else if (child.name === 'Tops' || mat.name === 'Topmat') {
+                  if (stdMat.normalMap) stdMat.normalScale.set(1.0, 1.0);
+                  stdMat.roughness = 0.9;
+                  stdMat.envMapIntensity = 0.18; // Soften environment reflections on cotton t-shirt
+                  mat.needsUpdate = true;
+                } else if (child.name === 'Bottoms' || mat.name === 'Bottommat') {
+                  if (stdMat.normalMap) stdMat.normalScale.set(1.0, 1.0);
+                  stdMat.roughness = 0.9;
+                  stdMat.envMapIntensity = 0.2; // Soften reflections on cargo shorts
+                  mat.needsUpdate = true;
+                } else if (child.name === 'Shoes' || mat.name === 'Shoesmat') {
+                  if (stdMat.normalMap) stdMat.normalScale.set(1.0, 1.0);
+                  stdMat.roughness = 0.85;
+                  stdMat.envMapIntensity = 0.35;
+                  mat.needsUpdate = true;
+                } else if (child.name === 'Body' || mat.name === 'Bodymat') {
+                  if (stdMat.normalMap) stdMat.normalScale.set(0.7, 0.7); // Subtle skin pores/musculature
+                  stdMat.roughness = 0.78;
+                  stdMat.envMapIntensity = 0.45;
                   mat.needsUpdate = true;
                 }
               });
