@@ -31,6 +31,8 @@ export class PlayerController {
   public currentSpeed = 0;
   private walkCycle = 0;
   private groundGraceTimer = 0;
+  private wasSpacePressed = false;
+  private jumpCooldown = 0;
 
   // Rigged GLTF Model & Animation Mixer
   private mixer: THREE.AnimationMixer | null = null;
@@ -489,8 +491,8 @@ export class PlayerController {
     const pos = this.rigidBody.translation();
     const vel = this.rigidBody.linvel();
 
-    // If ascending from an intentional jump, character is airborne
-    if (vel.y > 1.0) {
+    // If ascending or within jump liftoff cooldown, character is strictly airborne
+    if (vel.y > 0.5 || this.jumpCooldown > 0) {
       return false;
     }
 
@@ -535,6 +537,8 @@ export class PlayerController {
   }
 
   public physicsUpdate(dt: number, cameraAzimuth: number): void {
+    this.jumpCooldown = Math.max(0, this.jumpCooldown - dt);
+
     // Process deferred teleport to avoid Rapier3D WASM linear borrow conflict
     if (this.pendingTeleport) {
       const { x, y, z, facingAngle } = this.pendingTeleport;
@@ -607,10 +611,14 @@ export class PlayerController {
     const newVz = THREE.MathUtils.lerp(currentVel.z, targetVz, Math.min(1.0, lerpRate));
 
     let newVy = currentVel.y;
-    if (this.keys['Space'] && (this.isGrounded || this.groundGraceTimer > 0)) {
+    const isSpaceJustPressed = !!this.keys['Space'] && !this.wasSpacePressed;
+    this.wasSpacePressed = !!this.keys['Space'];
+
+    if (isSpaceJustPressed && this.jumpCooldown <= 0 && (this.isGrounded || this.groundGraceTimer > 0)) {
       newVy = this.jumpVelocity;
       this.isGrounded = false;
       this.groundGraceTimer = 0;
+      this.jumpCooldown = 0.25; // 250ms liftoff lockout prevents double-jumping
     }
 
     this.rigidBody.setLinvel({ x: newVx, y: newVy, z: newVz }, true);
