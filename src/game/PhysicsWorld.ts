@@ -150,29 +150,33 @@ export class PhysicsWorld {
     direction: { x: number; y: number; z: number },
     maxToi: number,
     solid: boolean = true,
-    excludeBody?: RAPIER.RigidBody
+    excludeCollider?: RAPIER.Collider
   ): RayHit | null {
-    const ray = new RAPIER.Ray(origin, direction);
-    const hit = this.world.castRay(
-      ray,
-      maxToi,
-      solid,
-      undefined,
-      undefined,
-      undefined,
-      excludeBody
-    );
+    if (this.isDisposed) return null;
+    try {
+      const ray = new RAPIER.Ray(origin, direction);
+      const hit = this.world.castRay(
+        ray,
+        maxToi,
+        solid,
+        undefined,
+        undefined,
+        excludeCollider
+      );
 
-    if (hit) {
-      return {
-        timeOfImpact: hit.timeOfImpact,
-        collider: hit.collider,
-        point: {
-          x: origin.x + direction.x * hit.timeOfImpact,
-          y: origin.y + direction.y * hit.timeOfImpact,
-          z: origin.z + direction.z * hit.timeOfImpact,
-        },
-      };
+      if (hit) {
+        return {
+          timeOfImpact: hit.timeOfImpact,
+          collider: hit.collider,
+          point: {
+            x: origin.x + direction.x * hit.timeOfImpact,
+            y: origin.y + direction.y * hit.timeOfImpact,
+            z: origin.z + direction.z * hit.timeOfImpact,
+          },
+        };
+      }
+    } catch (e) {
+      console.warn('castRay error suppressed:', e);
     }
     return null;
   }
@@ -181,7 +185,11 @@ export class PhysicsWorld {
 
   public step(): void {
     if (this.isDisposed) return;
-    this.world.step();
+    try {
+      this.world.step();
+    } catch (e) {
+      console.warn('PhysicsWorld.step suppressed during transition:', e);
+    }
   }
 
   public dispose(): void {

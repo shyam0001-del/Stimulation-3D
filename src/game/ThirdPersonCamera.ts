@@ -10,7 +10,7 @@ export class ThirdPersonCamera {
   public distance = 7.5; // Current zoom distance
   private targetDistance = 7.5;
 
-  private readonly minDistance = 4.5;
+  private readonly minDistance = 2.5;
   private readonly maxDistance = 18.0;
 
   private readonly minPhi = 0.15; // Overhead limit
@@ -133,10 +133,10 @@ export class ThirdPersonCamera {
     dt: number,
     targetPos: { x: number; y: number; z: number }
   ): void {
-    // 1. Character look-at target (focus slightly above player waist)
+    // 1. Character look-at target (focus on player chest/torso center)
     const desiredTarget = new THREE.Vector3(
       targetPos.x,
-      targetPos.y + 1.35,
+      targetPos.y + 0.15,
       targetPos.z
     );
 

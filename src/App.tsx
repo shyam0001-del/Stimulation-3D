@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { GameEngine } from './game/GameEngine';
 import { SandboxHUD } from './components/SandboxHUD';
-import { GameState } from './types/game';
+import { CharacterSelectModal } from './components/CharacterSelectModal';
+import { GameState, CharacterPreset, CHARACTER_PRESETS } from './types/game';
 import { Loader2 } from 'lucide-react';
 
 const INITIAL_GAME_STATE: GameState = {
@@ -14,6 +15,8 @@ const INITIAL_GAME_STATE: GameState = {
   isSprinting: false,
   isGrounded: true,
   isPointerLocked: false,
+  activeCharacterId: 'aarav-cse',
+  activeCharacterName: 'Aarav',
 };
 
 export const App: React.FC = () => {
@@ -23,6 +26,8 @@ export const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [loadingError, setLoadingError] = useState<string | null>(null);
   const [isHudVisible, setIsHudVisible] = useState(true);
+  const [isCharacterModalOpen, setIsCharacterModalOpen] = useState(true);
+  const [isInitialLaunch, setIsInitialLaunch] = useState(true);
 
   useEffect(() => {
     let isMounted = true;
@@ -33,11 +38,26 @@ export const App: React.FC = () => {
       if (e.code === 'KeyH') {
         setIsHudVisible((v) => !v);
       }
+      if (e.code === 'KeyC') {
+        setIsCharacterModalOpen((v) => !v);
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
 
     (window as unknown as { __toggleHUD?: (show?: boolean) => void }).__toggleHUD = (show?: boolean) => {
       setIsHudVisible((prev) => (show !== undefined ? show : !prev));
+    };
+
+    (window as unknown as { __openCharacterModal?: (open?: boolean) => void }).__openCharacterModal = (open?: boolean) => {
+      setIsCharacterModalOpen(open !== undefined ? open : true);
+    };
+
+    (window as unknown as { __selectCharacter?: (presetIdOrUrl: string) => Promise<void> }).__selectCharacter = async (
+      presetIdOrUrl: string
+    ) => {
+      if (engineRef.current) {
+        await engineRef.current.selectCharacter(presetIdOrUrl);
+      }
     };
 
     const engine = new GameEngine(canvas);
@@ -70,7 +90,7 @@ export const App: React.FC = () => {
         ) => {
           if (playerPos) {
             engine.teleportPlayer(playerPos.x, playerPos.y, playerPos.z, playerPos.facingAngle);
-            const target = { x: playerPos.x, y: playerPos.y + 1.35, z: playerPos.z };
+            const target = { x: playerPos.x, y: playerPos.y + 0.15, z: playerPos.z };
             engine.cameraController.snapView(camTheta, camPhi, camDistance, target);
           }
         };
@@ -103,6 +123,23 @@ export const App: React.FC = () => {
 
   const handleTeleport = useCallback((x: number, y: number, z: number) => {
     engineRef.current?.teleportPlayer(x, y, z);
+  }, []);
+
+  const handleSelectPreset = useCallback(async (preset: CharacterPreset) => {
+    if (engineRef.current) {
+      await engineRef.current.selectCharacter(preset);
+    }
+  }, []);
+
+  const handleUploadCustomGlb = useCallback(async (fileUrl: string) => {
+    if (engineRef.current) {
+      await engineRef.current.selectCharacter(fileUrl);
+    }
+  }, []);
+
+  const handleCloseCharacterModal = useCallback(() => {
+    setIsCharacterModalOpen(false);
+    setIsInitialLaunch(false);
   }, []);
 
   return (
@@ -150,6 +187,19 @@ export const App: React.FC = () => {
           onResetPosition={handleResetPosition}
           onRequestPointerLock={handleRequestPointerLock}
           onTeleport={handleTeleport}
+          onOpenCharacterSelect={() => setIsCharacterModalOpen(true)}
+        />
+      )}
+
+      {/* Interactive Student Character Selector Modal */}
+      {!isLoading && !loadingError && (
+        <CharacterSelectModal
+          isOpen={isCharacterModalOpen}
+          activePresetId={gameState.activeCharacterId}
+          onSelectPreset={handleSelectPreset}
+          onUploadCustomGlb={handleUploadCustomGlb}
+          onClose={handleCloseCharacterModal}
+          isInitialLaunch={isInitialLaunch}
         />
       )}
     </div>

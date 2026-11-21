@@ -1025,11 +1025,16 @@ export class CVRCampusMap {
     this.gltfLoader.load(
       '/models/Streetlight_Single.glb',
       (gltf) => {
+        const box = new THREE.Box3().setFromObject(gltf.scene);
+        const rawH = box.max.y - box.min.y || 1.0;
+        const targetH = 6.5; // Normalized 6.5m metric pole height
+        const scaleFactor = targetH / rawH;
+
         streetlightZ.forEach((sz, idx) => {
           const side = idx % 2 === 0 ? 1 : -1;
           const sx = 25 + side * 6.8;
           const lamp = gltf.scene.clone();
-          lamp.scale.setScalar(1.5);
+          lamp.scale.setScalar(scaleFactor);
           lamp.position.set(sx, 0, sz);
           lamp.rotation.y = side > 0 ? -Math.PI / 2 : Math.PI / 2;
 
@@ -1047,7 +1052,7 @@ export class CVRCampusMap {
           });
 
           this.group.add(lamp);
-          this.physics.createStaticCylinder(sx, 2.5, sz, 5.0, 0.2);
+          this.physics.createStaticCylinder(sx, targetH / 2, sz, targetH, 0.25);
         });
       },
       undefined,

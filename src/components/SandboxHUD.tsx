@@ -15,6 +15,8 @@ import {
   Minimize2,
   Car,
   Zap,
+  User,
+  Sparkles,
 } from 'lucide-react';
 
 interface SandboxHUDProps {
@@ -22,6 +24,7 @@ interface SandboxHUDProps {
   onResetPosition: () => void;
   onRequestPointerLock: () => void;
   onTeleport: (x: number, y: number, z: number) => void;
+  onOpenCharacterSelect?: () => void;
 }
 
 export const SandboxHUD: React.FC<SandboxHUDProps> = ({
@@ -29,10 +32,21 @@ export const SandboxHUD: React.FC<SandboxHUDProps> = ({
   onResetPosition,
   onRequestPointerLock,
   onTeleport,
+  onOpenCharacterSelect,
 }) => {
   const minimapCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [isTeleportOpen, setIsTeleportOpen] = useState(false);
   const [isMinimapExpanded, setIsMinimapExpanded] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'KeyC') {
+        onOpenCharacterSelect?.();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onOpenCharacterSelect]);
 
   const getFpsColor = (fps: number) => {
     if (fps >= 55) return 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10';
@@ -329,25 +343,42 @@ export const SandboxHUD: React.FC<SandboxHUDProps> = ({
             </div>
           </div>
 
-          {/* Quick Landmark Teleporter (Interactive) */}
-          <div className="relative pointer-events-auto">
+          {/* Quick Action Pills: Character Select & Quick Teleport */}
+          <div className="flex flex-wrap items-center gap-2 pointer-events-auto">
+            {/* Student Avatar Selector Button [C] */}
             <button
-              onClick={() => setIsTeleportOpen(!isTeleportOpen)}
-              className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-xs font-semibold text-slate-200 border border-white/10 shadow-lg backdrop-blur-md transition-all active:scale-95 cursor-pointer"
+              onClick={onOpenCharacterSelect}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500/20 via-slate-900/90 to-amber-500/10 hover:from-amber-500/30 text-xs font-semibold text-amber-300 border border-amber-500/30 shadow-lg backdrop-blur-md transition-all active:scale-95 cursor-pointer"
+              title="Change Student Character / Avatar (C)"
             >
-              <div className="flex items-center gap-1.5">
-                <Crosshair className="w-3.5 h-3.5 text-amber-400" />
-                <span>Quick Landmark Teleport</span>
-              </div>
-              <ChevronDown
-                className={`w-3.5 h-3.5 text-slate-400 transition-transform ${
-                  isTeleportOpen ? 'rotate-180' : ''
-                }`}
-              />
+              <User className="w-3.5 h-3.5 text-amber-400" />
+              <span>
+                Avatar: <strong className="text-white">{state.activeCharacterName || 'Aarav'}</strong>
+              </span>
+              <kbd className="px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-200 border border-amber-500/40 text-[10px] font-mono font-bold ml-0.5">
+                C
+              </kbd>
             </button>
 
-            {isTeleportOpen && (
-              <div className="absolute top-full left-0 mt-1.5 w-72 max-h-64 overflow-y-auto p-1.5 rounded-xl bg-slate-900/95 border border-white/15 shadow-2xl backdrop-blur-xl z-50 flex flex-col gap-1">
+            {/* Quick Landmark Teleporter (Interactive) */}
+            <div className="relative">
+              <button
+                onClick={() => setIsTeleportOpen(!isTeleportOpen)}
+                className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-slate-900/80 hover:bg-slate-800 text-xs font-semibold text-slate-200 border border-white/10 shadow-lg backdrop-blur-md transition-all active:scale-95 cursor-pointer"
+              >
+                <div className="flex items-center gap-1.5">
+                  <Crosshair className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Quick Landmark Teleport</span>
+                </div>
+                <ChevronDown
+                  className={`w-3.5 h-3.5 text-slate-400 transition-transform ${
+                    isTeleportOpen ? 'rotate-180' : ''
+                  }`}
+                />
+              </button>
+
+              {isTeleportOpen && (
+                <div className="absolute top-full left-0 mt-1.5 w-72 max-h-64 overflow-y-auto p-1.5 rounded-xl bg-slate-900/95 border border-white/15 shadow-2xl backdrop-blur-xl z-50 flex flex-col gap-1">
                 <div className="px-2 py-1 text-[10px] uppercase font-bold tracking-wider text-slate-400">
                   Select Campus Landmark
                 </div>
@@ -377,6 +408,7 @@ export const SandboxHUD: React.FC<SandboxHUDProps> = ({
                 ))}
               </div>
             )}
+            </div>
           </div>
         </div>
 
@@ -543,6 +575,16 @@ export const SandboxHUD: React.FC<SandboxHUDProps> = ({
                 Mouse / Drag
               </kbd>
               <span className="text-slate-300 font-medium">Orbit Look</span>
+            </div>
+
+            <span className="hidden sm:inline text-slate-600">•</span>
+
+            {/* Character C */}
+            <div className="flex items-center gap-1.5">
+              <kbd className="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 font-mono text-[11px] font-bold text-slate-200 shadow-sm">
+                C
+              </kbd>
+              <span className="text-slate-300 font-medium">Avatar</span>
             </div>
 
             <span className="hidden sm:inline text-slate-600">•</span>

@@ -21,6 +21,85 @@ export interface VehicleInteractionState {
   speedKmh: number;
 }
 
+export interface CharacterPreset {
+  id: string;
+  name: string;
+  department: string;
+  badge: string;
+  description: string;
+  modelUrl: string;
+  gender: 'male' | 'female' | 'custom';
+  outfit: {
+    primaryColor: string;
+    accentColor: string;
+    backpackColor: string;
+    tag: string;
+  };
+}
+
+export const CHARACTER_PRESETS: CharacterPreset[] = [
+  {
+    id: 'aarav-cse',
+    name: 'Aarav',
+    department: 'CSE • Computer Science',
+    badge: 'Coding Club Lead',
+    description: '3rd Year CSE • Coding Club Lead • Casual Teal & Navy CVR Hoodie',
+    modelUrl: '/models/avatar_male.glb',
+    gender: 'male',
+    outfit: {
+      primaryColor: '#0d9488', // Teal CVR hoodie
+      accentColor: '#1e293b',  // Dark navy jeans
+      backpackColor: '#f97316',// Orange college backpack
+      tag: 'Teal & Navy',
+    },
+  },
+  {
+    id: 'ananya-ece',
+    name: 'Ananya',
+    department: 'ECE • Electronics',
+    badge: 'Embedded Systems Lead',
+    description: '2nd Year ECE • Casual Denim & Coral Jacket • Tech Innovator',
+    modelUrl: '/models/avatar_female.glb',
+    gender: 'female',
+    outfit: {
+      primaryColor: '#ec4899', // Coral / Pink casual jacket
+      accentColor: '#334155',  // Indigo denim
+      backpackColor: '#fb7185',// Coral backpack
+      tag: 'Coral & Denim',
+    },
+  },
+  {
+    id: 'rohan-fest',
+    name: 'Rohan',
+    department: 'Mech • Mechanical Eng',
+    badge: 'CIENCIA Fest Crew',
+    description: 'Final Year Mech • CIENCIA Fest Lead Organizer • Maroon & Gold Attire',
+    modelUrl: '/models/avatar_male.glb',
+    gender: 'male',
+    outfit: {
+      primaryColor: '#881337', // Maroon fest attire
+      accentColor: '#f59e0b',  // Gold fest accent
+      backpackColor: '#18181b',// Matte black backpack
+      tag: 'Maroon & Gold',
+    },
+  },
+  {
+    id: 'kavya-tech',
+    name: 'Kavya',
+    department: 'IT • Information Tech',
+    badge: 'Campus Ambassador',
+    description: '3rd Year IT • Hackathon Winner • Royal Blue Campus Attire',
+    modelUrl: '/models/avatar_female.glb',
+    gender: 'female',
+    outfit: {
+      primaryColor: '#1d4ed8', // Royal blue hoodie
+      accentColor: '#f8fafc',  // White campus trim & sneakers
+      backpackColor: '#eab308',// Yellow backpack
+      tag: 'Royal Blue & White',
+    },
+  },
+];
+
 export interface GameState {
   fps: number;
   currentZone: CampusZone;
@@ -36,6 +115,8 @@ export interface GameState {
   isGrounded: boolean;
   isPointerLocked: boolean;
   vehicleInteraction?: VehicleInteractionState | null;
+  activeCharacterId?: string;
+  activeCharacterName?: string;
 }
 
 export interface LandmarkLocation {

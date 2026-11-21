@@ -244,29 +244,37 @@ export class GameEngine {
 
     // Report live state to React UI ~15 times per second
     this.statePublishTimer += frameDelta;
-    if (this.statePublishTimer >= 0.066 && this.stateCallback) {
+    if (this.statePublishTimer >= 0.066) {
       this.statePublishTimer = 0;
-      const playerPos = this.player.getPosition();
-      const zoneInfo = this.campus.detectZone(playerPos);
+      this.reportState(activeSpeed);
+    }
+  };
 
-      // Detect nearby vehicle for [F] prompt
-      const nearbyVehicle = this.vehicles.isDriving ? null : this.vehicles.getNearbyVehicle(playerPos, 4.2);
+  public reportState(activeSpeed = this.player.currentSpeed): void {
+    if (!this.stateCallback) return;
+    const playerPos = this.player.getPosition();
+    const zoneInfo = this.campus.detectZone(playerPos);
+    const nearbyVehicle = this.vehicles.isDriving ? null : this.vehicles.getNearbyVehicle(playerPos, 4.2);
 
-      this.stateCallback({
-        fps: this.currentFps,
-        currentZone: zoneInfo.zone,
-        zoneDescription: zoneInfo.description,
-        playerPosition: {
-          x: Number(playerPos.x.toFixed(1)),
-          y: Number(playerPos.y.toFixed(1)),
-          z: Number(playerPos.z.toFixed(1)),
-        },
-        playerRotationY: this.vehicles.isDriving && this.vehicles.activeVehicle ? this.vehicles.activeVehicle.yaw : this.player.getRotationY(),
-        playerSpeed: Number(activeSpeed.toFixed(1)),
-        isSprinting: this.player.isSprinting,
-        isGrounded: this.player.isGrounded,
-        isPointerLocked: this.cameraController.isPointerLocked,
-        vehicleInteraction: this.vehicles.isDriving && this.vehicles.activeVehicle
+    this.stateCallback({
+      fps: this.currentFps,
+      currentZone: zoneInfo.zone,
+      zoneDescription: zoneInfo.description,
+      playerPosition: {
+        x: Number(playerPos.x.toFixed(1)),
+        y: Number(playerPos.y.toFixed(1)),
+        z: Number(playerPos.z.toFixed(1)),
+      },
+      playerRotationY:
+        this.vehicles.isDriving && this.vehicles.activeVehicle
+          ? this.vehicles.activeVehicle.yaw
+          : this.player.getRotationY(),
+      playerSpeed: Number(activeSpeed.toFixed(1)),
+      isSprinting: this.player.isSprinting,
+      isGrounded: this.player.isGrounded,
+      isPointerLocked: this.cameraController.isPointerLocked,
+      vehicleInteraction:
+        this.vehicles.isDriving && this.vehicles.activeVehicle
           ? {
               vehicleId: this.vehicles.activeVehicle.id,
               vehicleName: this.vehicles.activeVehicle.name,
@@ -281,9 +289,15 @@ export class GameEngine {
               speedKmh: 0,
             }
           : null,
-      });
-    }
-  };
+      activeCharacterId: this.player.activePreset?.id,
+      activeCharacterName: this.player.activeCharacterName,
+    });
+  }
+
+  public async selectCharacter(presetOrUrl: import('../types/game').CharacterPreset | string): Promise<void> {
+    await this.player.setCharacter(presetOrUrl);
+    this.reportState();
+  }
 
   public onStateUpdate(callback: (state: GameState) => void): void {
     this.stateCallback = callback;
