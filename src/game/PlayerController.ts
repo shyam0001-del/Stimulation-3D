@@ -18,13 +18,13 @@ export class PlayerController {
   private readonly capsuleHalfHeight = 0.48;
   private readonly capsuleRadius = 0.35;
 
-  // Movement Speeds (m/s)
-  private readonly walkSpeed = 5.8;
-  private readonly sprintSpeed = 10.5;
+  // Movement Speeds (m/s) — Calibrated with Rapier ground friction for realistic 1.8 m/s walk & 4.5 m/s sprint
+  private readonly walkSpeed = 2.05;
+  private readonly sprintSpeed = 4.75;
   // Jump velocity v = sqrt(2 * g * h) = sqrt(2 * 9.81 * 0.80) = 3.962 m/s for realistic 0.8m height
   private readonly jumpVelocity = 3.962;
-  private readonly acceleration = 18.0;
-  private readonly deceleration = 9.5;
+  private readonly acceleration = 14.0;
+  private readonly deceleration = 10.0;
 
   // State
   public isGrounded = true;
@@ -654,10 +654,10 @@ export class PlayerController {
       } else {
         // Safe airborne fallback when current avatar has no dedicated jump animation clip:
         // If moving with momentum, maintain airborne stride rather than snapping to a grounded standing idle
-        if (this.currentSpeed > 3.0) {
+        if (this.currentSpeed > 2.2) {
           targetActionName = 'run';
           timeScale = 0.8;
-        } else if (this.currentSpeed > 0.4) {
+        } else if (this.currentSpeed > 0.3) {
           targetActionName = 'walk';
           timeScale = 0.85;
         } else {
@@ -665,13 +665,13 @@ export class PlayerController {
           timeScale = 1.0;
         }
       }
-    } else if (hasInput && this.currentSpeed > 0.3) {
-      if (this.isSprinting && this.currentSpeed > 4.5) {
+    } else if (hasInput && this.currentSpeed > 0.25) {
+      if (this.isSprinting && this.currentSpeed > 2.2) {
         targetActionName = 'run';
-        timeScale = THREE.MathUtils.clamp(this.currentSpeed / 7.2, 0.8, 1.35);
+        timeScale = THREE.MathUtils.clamp(this.currentSpeed / 4.8, 0.75, 1.25);
       } else {
         targetActionName = 'walk';
-        timeScale = THREE.MathUtils.clamp(this.currentSpeed / 4.2, 0.75, 1.25);
+        timeScale = THREE.MathUtils.clamp(this.currentSpeed / 1.65, 0.65, 1.30);
       }
     } else {
       targetActionName = 'idle';
@@ -719,8 +719,8 @@ export class PlayerController {
   }
 
   private animateProceduralLimbs(dt: number, hasInput: boolean): void {
-    if (this.isGrounded && hasInput && this.currentSpeed > 0.4) {
-      const frequency = this.isSprinting ? 14.0 : 9.0;
+    if (this.isGrounded && hasInput && this.currentSpeed > 0.25) {
+      const frequency = this.isSprinting ? 11.0 : 6.5;
       this.walkCycle += dt * frequency;
 
       const armSwing = Math.sin(this.walkCycle) * 0.45;
