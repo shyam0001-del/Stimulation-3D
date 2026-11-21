@@ -21,7 +21,8 @@ export class PlayerController {
   // Movement Speeds (m/s)
   private readonly walkSpeed = 5.8;
   private readonly sprintSpeed = 10.5;
-  private readonly jumpVelocity = 7.0;
+  // Jump velocity v = sqrt(2 * g * h) = sqrt(2 * 9.81 * 0.80) = 3.962 m/s for realistic 0.8m height
+  private readonly jumpVelocity = 3.962;
   private readonly acceleration = 18.0;
   private readonly deceleration = 9.5;
 
@@ -618,7 +619,7 @@ export class PlayerController {
       newVy = this.jumpVelocity;
       this.isGrounded = false;
       this.groundGraceTimer = 0;
-      this.jumpCooldown = 0.25; // 250ms liftoff lockout prevents double-jumping
+      this.jumpCooldown = 0.20; // 200ms liftoff lockout prevents double-jumping
     }
 
     this.rigidBody.setLinvel({ x: newVx, y: newVy, z: newVz }, true);
