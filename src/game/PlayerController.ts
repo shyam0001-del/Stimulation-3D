@@ -18,13 +18,13 @@ export class PlayerController {
   private readonly capsuleHalfHeight = 0.48;
   private readonly capsuleRadius = 0.35;
 
-  // Movement Speeds (m/s) — Calibrated with Rapier ground friction for realistic 1.8 m/s walk & 4.5 m/s sprint
-  private readonly walkSpeed = 2.05;
-  private readonly sprintSpeed = 4.75;
+  // Movement Speeds (m/s) — Calibrated with Rapier ground friction for responsive 2.5 m/s walk & 6.0 m/s sprint
+  private readonly walkSpeed = 2.75;
+  private readonly sprintSpeed = 6.28;
   // Jump velocity v = sqrt(2 * g * h) = sqrt(2 * 9.81 * 0.80) = 3.962 m/s for realistic 0.8m height
   private readonly jumpVelocity = 3.962;
-  private readonly acceleration = 14.0;
-  private readonly deceleration = 10.0;
+  private readonly acceleration = 16.0;
+  private readonly deceleration = 11.0;
 
   // State
   public isGrounded = true;
@@ -654,24 +654,24 @@ export class PlayerController {
       } else {
         // Safe airborne fallback when current avatar has no dedicated jump animation clip:
         // If moving with momentum, maintain airborne stride rather than snapping to a grounded standing idle
-        if (this.currentSpeed > 2.2) {
+        if (this.currentSpeed > 3.0) {
           targetActionName = 'run';
-          timeScale = 0.8;
+          timeScale = 0.85;
         } else if (this.currentSpeed > 0.3) {
           targetActionName = 'walk';
-          timeScale = 0.85;
+          timeScale = 0.90;
         } else {
           targetActionName = 'idle';
           timeScale = 1.0;
         }
       }
     } else if (hasInput && this.currentSpeed > 0.25) {
-      if (this.isSprinting && this.currentSpeed > 2.2) {
+      if (this.isSprinting && this.currentSpeed > 3.0) {
         targetActionName = 'run';
-        timeScale = THREE.MathUtils.clamp(this.currentSpeed / 4.8, 0.75, 1.25);
+        timeScale = THREE.MathUtils.clamp(this.currentSpeed / 5.4, 0.75, 1.35);
       } else {
         targetActionName = 'walk';
-        timeScale = THREE.MathUtils.clamp(this.currentSpeed / 1.65, 0.65, 1.30);
+        timeScale = THREE.MathUtils.clamp(this.currentSpeed / 2.15, 0.65, 1.35);
       }
     } else {
       targetActionName = 'idle';

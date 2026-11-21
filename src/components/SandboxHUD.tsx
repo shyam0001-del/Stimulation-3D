@@ -554,7 +554,7 @@ export const SandboxHUD: React.FC<SandboxHUDProps> = ({
               <kbd className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 font-mono text-[11px] font-bold text-slate-200 shadow-sm">
                 Shift
               </kbd>
-              <span className="text-slate-300 font-medium">Sprint (4.5m/s)</span>
+              <span className="text-slate-300 font-medium">Sprint (6.0m/s)</span>
             </div>
 
             <span className="hidden sm:inline text-slate-600">•</span>
