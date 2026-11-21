@@ -227,18 +227,25 @@ export class PlayerController {
                   mat.needsUpdate = true;
                 } else if (child.name === 'Tops' || mat.name === 'Topmat') {
                   if (stdMat.normalMap) stdMat.normalScale.set(1.0, 1.0);
-                  stdMat.roughness = 0.9;
-                  stdMat.envMapIntensity = 0.18; // Soften environment reflections on cotton t-shirt
+                  stdMat.roughnessMap = null;
+                  stdMat.metalnessMap = null;
+                  stdMat.roughness = 0.95;
+                  stdMat.metalness = 0.0;
+                  stdMat.envMapIntensity = 0.05; // Plain matte navy cotton T-shirt
                   mat.needsUpdate = true;
                 } else if (child.name === 'Bottoms' || mat.name === 'Bottommat') {
                   if (stdMat.normalMap) stdMat.normalScale.set(1.0, 1.0);
-                  stdMat.roughness = 0.9;
-                  stdMat.envMapIntensity = 0.2; // Soften reflections on cargo shorts
+                  stdMat.roughnessMap = null;
+                  stdMat.metalnessMap = null;
+                  stdMat.roughness = 0.95;
+                  stdMat.metalness = 0.0;
+                  stdMat.envMapIntensity = 0.05; // Dark blue matte denim jeans
                   mat.needsUpdate = true;
                 } else if (child.name === 'Shoes' || mat.name === 'Shoesmat') {
                   if (stdMat.normalMap) stdMat.normalScale.set(1.0, 1.0);
-                  stdMat.roughness = 0.85;
-                  stdMat.envMapIntensity = 0.35;
+                  stdMat.roughness = 0.80;
+                  stdMat.metalness = 0.0;
+                  stdMat.envMapIntensity = 0.20; // Clean white sneakers
                   mat.needsUpdate = true;
                 } else if (child.name === 'Body' || mat.name === 'Bodymat') {
                   if (stdMat.normalMap) stdMat.normalScale.set(0.7, 0.7); // Subtle skin pores/musculature
