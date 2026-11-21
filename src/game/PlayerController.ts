@@ -206,6 +206,24 @@ export class PlayerController {
               const cloned = origMat.clone();
               cloned.color = new THREE.Color(preset.outfit.primaryColor);
               child.material = cloned;
+            } else if (preset.id === 'remy') {
+              // Fix Remy's hair cards & eyelashes: eliminate transparency sorting, halos & skybox bleed
+              const mats = Array.isArray(child.material) ? child.material : [child.material];
+              mats.forEach((mat) => {
+                if (child.name === 'Hair' || mat.name === 'Hairmat') {
+                  mat.transparent = false;
+                  mat.depthWrite = true;
+                  mat.alphaTest = 0.5;
+                  mat.alphaToCoverage = true;
+                  mat.needsUpdate = true;
+                } else if (child.name === 'Eyelashes' || mat.name === 'Eyelashmat') {
+                  mat.transparent = false;
+                  mat.depthWrite = true;
+                  mat.alphaTest = 0.7;
+                  mat.alphaToCoverage = true;
+                  mat.needsUpdate = true;
+                }
+              });
             }
           }
         }
