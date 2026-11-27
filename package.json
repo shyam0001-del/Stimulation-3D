@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:controls": "node checkpoints/UPGRADE8_CONTROLS_APPROVED/test_controls_regression.cjs"
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "^0.21.0",

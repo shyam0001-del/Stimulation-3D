@@ -1,0 +1,53 @@
+ D dist/assets/index-BjKjPcIY.css
+ D dist/assets/index-DuVPyIMs.js
+ M dist/index.html
+ D dist/models/student.glb
+ M node_modules/.vite/deps/_metadata.json
+ M node_modules/.vite/deps/three_examples_jsm_loaders_GLTFLoader__js.js
+ M node_modules/.vite/deps/three_examples_jsm_loaders_GLTFLoader__js.js.map
+ M package.json
+ M public/models/remy.glb
+ M src/App.tsx
+ M src/components/SandboxHUD.tsx
+ M src/game/CVRCampusMap.ts
+ M src/game/GameEngine.ts
+ M src/game/PhysicsWorld.ts
+ M src/game/PlayerController.ts
+ M src/game/ThirdPersonCamera.ts
+ M src/game/VehicleController.ts
+ M src/types/game.ts
+?? .vite/
+?? THIRD_PARTY_ASSETS.md
+?? checkpoints/
+?? dist/assets/index-2lzFeJsH.css
+?? dist/assets/index-R8ziTMP6.js
+?? dist/fonts/
+?? dist/models/avatar_female.glb
+?? dist/models/avatar_male.glb
+?? dist/models/birds/
+?? dist/models/remy.glb
+?? dist/models/remy.glb.bak
+?? dist/models/remy_work.glb
+?? dist/models/trees/
+?? dist/textures/cvr_emblem.png
+?? dist/textures/cvr_emblem_raw.jpg
+?? dist/textures/target_ref.jpg
+?? node_modules/.vite/deps/three_examples_jsm_geometries_TextGeometry__js.js
+?? node_modules/.vite/deps/three_examples_jsm_geometries_TextGeometry__js.js.map
+?? node_modules/.vite/deps/three_examples_jsm_loaders_FontLoader__js.js
+?? node_modules/.vite/deps/three_examples_jsm_loaders_FontLoader__js.js.map
+?? node_modules/.vite/deps/three_examples_jsm_utils_BufferGeometryUtils__js.js
+?? node_modules/.vite/deps/three_examples_jsm_utils_BufferGeometryUtils__js.js.map
+?? node_modules/.vite/deps/three_examples_jsm_utils_SkeletonUtils__js.js
+?? node_modules/.vite/deps/three_examples_jsm_utils_SkeletonUtils__js.js.map
+?? public/fonts/
+?? public/models/birds/
+?? public/models/remy.glb.bak
+?? public/models/remy_work.glb
+?? public/models/trees/
+?? public/textures/cvr_emblem.png
+?? public/textures/cvr_emblem_raw.jpg
+?? public/textures/target_ref.jpg
+?? src/assets/
+?? src/game/BirdWildlifeSystem.ts
+?? src/game/LivingSky.ts

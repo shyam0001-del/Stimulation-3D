@@ -8,17 +8,17 @@ export interface RayHit {
 
 export class PhysicsWorld {
   private world: RAPIER.World;
-  private static initialized = false;
+  private static initPromise: Promise<void> | null = null;
 
   private constructor(world: RAPIER.World) {
     this.world = world;
   }
 
   public static async create(gravity = { x: 0.0, y: -9.81, z: 0.0 }): Promise<PhysicsWorld> {
-    if (!PhysicsWorld.initialized) {
-      await RAPIER.init();
-      PhysicsWorld.initialized = true;
+    if (!PhysicsWorld.initPromise) {
+      PhysicsWorld.initPromise = RAPIER.init();
     }
+    await PhysicsWorld.initPromise;
     const world = new RAPIER.World(gravity);
     return new PhysicsWorld(world);
   }

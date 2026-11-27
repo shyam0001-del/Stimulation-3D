@@ -1,0 +1,631 @@
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
+
+export interface AirborneRaptor {
+  pivot: THREE.Group;
+  model: THREE.Group;
+  mixer: THREE.AnimationMixer;
+  action: THREE.AnimationAction;
+  position: THREE.Vector3;
+  velocity: THREE.Vector3;
+  forward: THREE.Vector3;
+  speed: number;
+  baseSpeed: number;
+  wingSpanMeters: number;
+  wanderAngle: number;
+  turnRate: number;
+  bankAngle: number;
+  altitudeBase: number;
+  altitudePhase: number;
+  // Flight state: alternating between soaring thermal glide and active flap burst
+  flightState: 'SOARING_GLIDE' | 'FLAP_BURST';
+  stateTimer: number;
+}
+
+export interface PerchedSongbird {
+  pivot: THREE.Group;
+  model: THREE.Group;
+  mixer: THREE.AnimationMixer;
+  action: THREE.AnimationAction;
+  treeOrigin: THREE.Vector3;
+  branchOffset: THREE.Vector3;
+  currentPos: THREE.Vector3;
+  baseYaw: number;
+  currentYaw: number;
+  // Wildlife state machine
+  state: 'PERCHED_IDLE' | 'BRANCH_HOP' | 'ALERT';
+  stateTimer: number;
+  hopProgress: number;
+  targetYaw: number;
+  hopHeight: number;
+}
+
+export interface DistantSparrow {
+  pivot: THREE.Group;
+  model: THREE.Group;
+  position: THREE.Vector3;
+  velocity: THREE.Vector3;
+  forward: THREE.Vector3;
+  speed: number;
+  wanderAngle: number;
+  turnRate: number;
+  bankAngle: number;
+  altitudeBase: number;
+}
+
+/**
+ * BirdWildlifeSystem — Upgrade 8 Option 1 Implementation
+ * 
+ * 1. Airborne Flight:
+ *    - Real campus raptor / Black Kite (phoenix_bird.glb calibrated to ~1.9m wingspan)
+ *    - Natural tawny/dark-brown plumage tint matching Indian Black Kites
+ *    - Genuine skeletal wing flapping (Take 001, 264 animation tracks)
+ *    - Thermal soaring glide vs flapping burst flight state machine
+ *    - Aerodynamic banking rolls and non-repetitive sweeping flight paths
+ * 
+ * 2. Tree Perching Wildlife:
+ *    - Indian Myna / Orange Songbird (bird_orange.glb calibrated to 25cm songbird size)
+ *    - Accurate perch on actual tree branch geometry of CVR campus trees
+ *    - Staggered idle head-turning, tail-bobbing, and alert animation
+ *    - Branch-hopping and player-proximity alert state machine
+ * 
+ * 3. Distant Sparrows:
+ *    - Lightweight Google Poly sparrows for environmental sky depth
+ */
+export class BirdWildlifeSystem {
+  private scene: THREE.Scene;
+  private loader: GLTFLoader;
+  public isLoaded = false;
+  private time = 0;
+
+  private raptors: AirborneRaptor[] = [];
+  private perchedBirds: PerchedSongbird[] = [];
+  private distantSparrows: DistantSparrow[] = [];
+
+  // Sky airspace boundaries over CVR Campus Grand Entrance and 12M Spine Avenue
+  private readonly airspace = {
+    minX: -45.0,
+    maxX: 85.0,
+    minY: 30.0,  // High overhead soaring thermal altitude
+    maxY: 65.0,  // Sky cruising altitude
+    minZ: -205.0, // Highway forecourt outside gate
+    maxZ: -55.0,  // Inner junction / PG Block road
+  };
+
+  constructor(scene: THREE.Scene) {
+    this.scene = scene;
+    this.loader = new GLTFLoader();
+    this.initWildlife();
+  }
+
+  private async initWildlife(): Promise<void> {
+    // Upgrade 8 Mandate:
+    // 1. Completely disable phoenix_bird.glb from the live campus.
+    // 2. Temporarily disable Phase C wildlife until realistic flight is approved.
+    this.raptors = [];
+    this.perchedBirds = [];
+    this.distantSparrows = [];
+    this.isLoaded = true;
+    console.log('BirdWildlifeSystem: phoenix_bird.glb and Phase C wildlife disabled pending approved realistic flight model.');
+  }
+
+  /**
+   * Loads and configures the soaring campus raptor (Black Kite / Eagle)
+   */
+  private async loadAirborneRaptor(): Promise<void> {
+    try {
+      const gltf = await new Promise<any>((resolve, reject) => {
+        this.loader.load('/models/birds/phoenix_bird.glb', resolve, undefined, reject);
+      });
+
+      const model = gltf.scene as THREE.Group;
+      const clip = gltf.animations && gltf.animations[0]; // "Take 001" (3.33s, 264 tracks)
+
+      // Natural Raptor Plumage Tuning:
+      // Real Black Kites (Milvus migrans govinda) common in Hyderabad have rich dark-brown
+      // plumage with pale underwing crescents and rufous-brown feather margins.
+      // Tint the materials to realistic earthy raptor tones, remove fantasy shine.
+      model.traverse((node) => {
+        // Hide fantasy riding harness/straps (Object_8)
+        if (node.name === 'Object_8') {
+          node.visible = false;
+        }
+        if ((node as THREE.Mesh).isMesh) {
+          node.castShadow = true;
+          node.receiveShadow = false;
+          const mat = (node as THREE.Mesh).material as THREE.MeshStandardMaterial;
+          if (mat) {
+            // Remove full-white fantasy emissive glow
+            if (mat.emissive) {
+              mat.emissive.setHex(0x000000);
+            }
+            // Earthy dark brown raptor plumage tone
+            mat.color = new THREE.Color(0x3e2c1e);
+            mat.roughness = 0.85;
+            mat.metalness = 0.0;
+            if (mat.map) {
+              mat.map.colorSpace = THREE.SRGBColorSpace;
+            }
+          }
+        }
+      });
+
+      // Spawn Primary Soaring Black Kite over CVR Grand Entrance
+      // Wingspan is along X: 890.4 units. Scale 0.00215 -> 1.91m wingspan
+      const pivot = new THREE.Group();
+      pivot.scale.setScalar(0.00215);
+
+      // Use loaded gltf.scene directly to preserve SkinnedMesh skeleton bindings
+      const raptorModel = model;
+      // In rest pose, phoenix model points towards -Z with wings horizontal;
+      // rotate 180 deg to align forward with +Z
+      raptorModel.rotation.y = Math.PI;
+      pivot.add(raptorModel);
+
+      const startPos = new THREE.Vector3(25.0, 42.0, -140.0); // Soaring high over entrance avenue
+      pivot.position.copy(startPos);
+      this.scene.add(pivot);
+
+      let mixer: THREE.AnimationMixer;
+      let action: THREE.AnimationAction;
+      if (clip) {
+        mixer = new THREE.AnimationMixer(raptorModel);
+        action = mixer.clipAction(clip);
+        action.timeScale = 0.25; // Start in calm soaring glide
+        action.play();
+      } else {
+        mixer = new THREE.AnimationMixer(raptorModel);
+        action = {} as any;
+      }
+
+      const initialHeading = 0.45; // Heading South-East across campus
+      const initialForward = new THREE.Vector3(Math.sin(initialHeading), 0, Math.cos(initialHeading));
+
+      this.raptors.push({
+        pivot,
+        model: raptorModel,
+        mixer,
+        action,
+        position: startPos.clone(),
+        velocity: initialForward.clone().multiplyScalar(9.5),
+        forward: initialForward,
+        speed: 9.5,
+        baseSpeed: 9.5,
+        wingSpanMeters: 1.91,
+        wanderAngle: 0.8,
+        turnRate: 0,
+        bankAngle: 0,
+        altitudeBase: 42.0,
+        altitudePhase: 0.0,
+        flightState: 'SOARING_GLIDE',
+        stateTimer: 6.0, // 6s of glide before first flap burst
+      });
+    } catch (err) {
+      console.warn('Airborne raptor load note:', err);
+    }
+  }
+
+  /**
+   * Loads and places perched Indian Myna / Orange Songbirds on campus tree branches
+   */
+  private async loadPerchedSongbirds(): Promise<void> {
+    try {
+      const gltf = await new Promise<any>((resolve, reject) => {
+        this.loader.load('/models/birds/bird_orange.glb', resolve, undefined, reject);
+      });
+
+      const sourceModel = gltf.scene as THREE.Group;
+      const clip = gltf.animations && gltf.animations[0]; // "anim" (5.04s, 50 tracks)
+
+      // Tune songbird materials
+      sourceModel.traverse((node) => {
+        if ((node as THREE.Mesh).isMesh) {
+          node.castShadow = true;
+          node.receiveShadow = false;
+          const mat = (node as THREE.Mesh).material as THREE.MeshStandardMaterial;
+          if (mat) {
+            mat.roughness = 0.75;
+            mat.metalness = 0.05;
+          }
+        }
+      });
+
+      // Actual campus tree positions from CVRCampusMap upgradeTreeConfigs:
+      // - Tree 1: Entrance Canopy Center Tree at (25.0, -166.0)
+      // - Tree 2: West Entrance Flank Tree at (17.0, -152.0)
+      // - Tree 3: East Entrance Flank Tree at (32.6, -154.0)
+      // - Tree 4: 12M Spine Central Divider Tree at (25.0, -150.0)
+      // - Tree 5: CVR Park Entrance Perimeter Tree at (32.6, -100.0)
+      const perchConfigs: {
+        treePos: { x: number; y: number; z: number };
+        branchOffset: { x: number; y: number; z: number };
+        yaw: number;
+        species: string;
+      }[] = [
+        {
+          // Tree 1: Just inside main gate, lower branch facing the roadway
+          treePos: { x: 25.0, y: 0.0, z: -166.0 },
+          branchOffset: { x: 0.42, y: 2.95, z: -0.15 },
+          yaw: -0.65,
+          species: 'Indian Myna (Entrance Avenue Canopy)',
+        },
+        {
+          // Tree 2: West roadside tree, branch extending over pedestrian sidewalk
+          treePos: { x: 17.0, y: 0.0, z: -152.0 },
+          branchOffset: { x: 1.45, y: 3.58, z: -0.28 },
+          yaw: 1.25,
+          species: 'Orange Songbird (West Walkway Shade Tree)',
+        },
+        {
+          // Tree 3: East roadside tree near bus-bay turn
+          treePos: { x: 32.6, y: 0.0, z: -154.0 },
+          branchOffset: { x: -1.38, y: 3.92, z: 0.05 },
+          yaw: 2.80,
+          species: 'Indian Myna (East Bus Bay Corner)',
+        },
+        {
+          // Tree 4: Central divider tree along 12M Spine Avenue
+          treePos: { x: 25.0, y: 0.0, z: -150.0 },
+          branchOffset: { x: -0.25, y: 3.82, z: -0.98 },
+          yaw: -2.10,
+          species: 'Orange Songbird (Central Divider Avenue)',
+        },
+        {
+          // Tree 5: Near CVR Park entrance gate
+          treePos: { x: 32.6, y: 0.0, z: -100.0 },
+          branchOffset: { x: 0.40, y: 2.92, z: 0.02 },
+          yaw: 0.40,
+          species: 'Indian Myna (CVR Park Entrance)',
+        },
+      ];
+
+      perchConfigs.forEach((cfg, idx) => {
+        const pivot = new THREE.Group();
+        const model = SkeletonUtils.clone(sourceModel) as THREE.Group;
+
+        // Scale 0.14 gives ~0.25m length (true songbird scale)
+        model.scale.setScalar(0.14);
+        pivot.add(model);
+
+        const treeOrigin = new THREE.Vector3(cfg.treePos.x, cfg.treePos.y, cfg.treePos.z);
+        const branchOffset = new THREE.Vector3(cfg.branchOffset.x, cfg.branchOffset.y, cfg.branchOffset.z);
+        const currentPos = treeOrigin.clone().add(branchOffset);
+
+        pivot.position.copy(currentPos);
+        pivot.rotation.y = cfg.yaw;
+
+        this.scene.add(pivot);
+
+        let mixer: THREE.AnimationMixer;
+        let action: THREE.AnimationAction;
+        if (clip) {
+          mixer = new THREE.AnimationMixer(model);
+          action = mixer.clipAction(clip);
+          action.timeScale = 1.0;
+          // Stagger animation phase so birds don't look around in lockstep
+          action.time = ((idx * 1.35) % clip.duration);
+          action.play();
+        } else {
+          mixer = new THREE.AnimationMixer(model);
+          action = {} as any;
+        }
+
+        this.perchedBirds.push({
+          pivot,
+          model,
+          mixer,
+          action,
+          treeOrigin,
+          branchOffset,
+          currentPos,
+          baseYaw: cfg.yaw,
+          currentYaw: cfg.yaw,
+          state: 'PERCHED_IDLE',
+          stateTimer: 6.0 + Math.random() * 8.0,
+          hopProgress: 0,
+          targetYaw: cfg.yaw,
+          hopHeight: 0,
+        });
+      });
+    } catch (err) {
+      console.warn('Perched songbirds load note:', err);
+    }
+  }
+
+  /**
+   * Loads lightweight Google Poly sparrows for high-altitude sky depth
+   */
+  private async loadDistantSparrows(): Promise<void> {
+    try {
+      const gltf = await new Promise<any>((resolve, reject) => {
+        this.loader.load('/models/birds/sparrow_poly.glb', resolve, undefined, reject);
+      });
+
+      const sourceModel = gltf.scene as THREE.Group;
+
+      const sparrowConfigs = [
+        { startPos: new THREE.Vector3(12.0, 23.0, -145.0), vel: new THREE.Vector3(-3.5, 0, -5.5), baseSpeed: 7.2 },
+        { startPos: new THREE.Vector3(16.5, 24.2, -150.0), vel: new THREE.Vector3(-3.2, 0, -5.8), baseSpeed: 7.5 },
+      ];
+
+      sparrowConfigs.forEach((cfg) => {
+        const pivot = new THREE.Group();
+        const model = sourceModel.clone(true) as THREE.Group;
+        model.scale.setScalar(0.0022); // ~0.45m span
+        pivot.add(model);
+        pivot.position.copy(cfg.startPos);
+        this.scene.add(pivot);
+
+        const initialForward = cfg.vel.clone().normalize();
+
+        this.distantSparrows.push({
+          pivot,
+          model,
+          position: cfg.startPos.clone(),
+          velocity: cfg.vel.clone(),
+          forward: initialForward,
+          speed: cfg.baseSpeed,
+          wanderAngle: Math.random() * Math.PI * 2,
+          turnRate: 0,
+          bankAngle: 0,
+          altitudeBase: cfg.startPos.y,
+        });
+      });
+    } catch (err) {
+      console.warn('Distant sparrows load note:', err);
+    }
+  }
+
+  /**
+   * Main simulation tick called every frame
+   */
+  public update(deltaTime: number, playerPos?: { x: number; y: number; z: number }): void {
+    if (!this.isLoaded) return;
+    const dt = Math.min(deltaTime, 0.1);
+    this.time += dt;
+
+    // 1. Update Airborne Soaring Raptors
+    this.updateRaptors(dt);
+
+    // 2. Update Perched Songbird State Machines
+    this.updatePerchedBirds(dt, playerPos);
+
+    // 3. Update Distant Sparrows
+    this.updateDistantSparrows(dt);
+  }
+
+  /**
+   * Simulates thermal soaring, wing-flap bursts, banking turns, and non-circular flight paths
+   */
+  private updateRaptors(dt: number): void {
+    for (let i = 0; i < this.raptors.length; i++) {
+      const raptor = this.raptors[i];
+
+      // State Machine: Soaring Thermal Glide <-> Wing Flap Burst
+      raptor.stateTimer -= dt;
+      if (raptor.stateTimer <= 0) {
+        if (raptor.flightState === 'SOARING_GLIDE') {
+          // Switch to active flapping burst (3 to 5 flaps to gain altitude / adjust direction)
+          raptor.flightState = 'FLAP_BURST';
+          raptor.stateTimer = 2.4 + Math.random() * 1.6; // ~3-4 flaps
+          if (raptor.action && typeof raptor.action.play === 'function') {
+            raptor.action.timeScale = 1.35; // Energetic skeletal wing beats
+          }
+        } else {
+          // Switch back to wide majestic thermal soaring glide
+          raptor.flightState = 'SOARING_GLIDE';
+          raptor.stateTimer = 7.0 + Math.random() * 6.0; // 7-13s of effortless gliding
+          if (raptor.action && typeof raptor.action.play === 'function') {
+            raptor.action.timeScale = 0.18; // Subtle wingtip micro-adjustments
+          }
+        }
+      }
+
+      // Smooth path steering: dual-frequency non-repetitive wander
+      const wanderDelta = (
+        Math.sin(this.time * 0.22 + i * 2.1) * 0.35 +
+        Math.cos(this.time * 0.11 + i * 1.7) * 0.22
+      ) * dt;
+      raptor.wanderAngle += wanderDelta;
+
+      // Soft Airspace Perimeter Steering
+      const margin = 16.0;
+      let turnSteer = 0;
+      if (raptor.position.x > this.airspace.maxX - margin) turnSteer -= 1.0;
+      else if (raptor.position.x < this.airspace.minX + margin) turnSteer += 1.0;
+
+      if (raptor.position.z > this.airspace.maxZ - margin) turnSteer -= 1.0;
+      else if (raptor.position.z < this.airspace.minZ + margin) turnSteer += 1.0;
+
+      // Altitude undulation: climbs slightly during flap burst, gentle sink during glide
+      let targetAlt = raptor.altitudeBase + Math.sin(this.time * 0.25 + i) * 3.5;
+      if (raptor.flightState === 'FLAP_BURST') {
+        targetAlt += 1.8;
+      }
+      const altDiff = targetAlt - raptor.position.y;
+      const verticalSteer = THREE.MathUtils.clamp(altDiff * 0.3, -0.22, 0.28);
+
+      // Heading and Aerodynamic Banking
+      const currentHeading = Math.atan2(raptor.forward.x, raptor.forward.z);
+      const targetHeading = currentHeading + (Math.sin(raptor.wanderAngle) * 0.20 + turnSteer) * dt;
+
+      let angleDiff = targetHeading - currentHeading;
+      while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+      while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+
+      raptor.turnRate = THREE.MathUtils.lerp(raptor.turnRate, angleDiff / dt, 0.12);
+
+      // Dynamic banking roll: rolls up to ~32 deg into turns
+      const desiredBank = THREE.MathUtils.clamp(-raptor.turnRate * 0.38, -0.56, 0.56);
+      raptor.bankAngle = THREE.MathUtils.lerp(raptor.bankAngle, desiredBank, 0.08);
+
+      // Reconstruct 3D forward vector
+      raptor.forward.x = Math.sin(targetHeading);
+      raptor.forward.y = verticalSteer;
+      raptor.forward.z = Math.cos(targetHeading);
+      raptor.forward.normalize();
+
+      // Velocity: faster during dive/descents and flap bursts
+      const targetSpeed = raptor.flightState === 'FLAP_BURST' ? 12.5 : 9.2;
+      raptor.speed = THREE.MathUtils.lerp(raptor.speed, targetSpeed - raptor.forward.y * 2.5, 0.06);
+
+      raptor.velocity.copy(raptor.forward).multiplyScalar(raptor.speed);
+      raptor.position.addScaledVector(raptor.velocity, dt);
+      raptor.pivot.position.copy(raptor.position);
+
+      // Orientation: Point forward + Banking Roll
+      const lookTarget = raptor.position.clone().add(raptor.forward);
+      raptor.pivot.lookAt(lookTarget);
+      raptor.pivot.rotateZ(raptor.bankAngle);
+
+      // Update Animation Mixer
+      if (raptor.mixer) {
+        raptor.mixer.update(dt);
+      }
+    }
+  }
+
+  /**
+   * Wildlife state machine for perched songbirds (idle looking around, branch hop, alert)
+   */
+  private updatePerchedBirds(dt: number, playerPos?: { x: number; y: number; z: number }): void {
+    for (let i = 0; i < this.perchedBirds.length; i++) {
+      const bird = this.perchedBirds[i];
+
+      // Player Proximity Check for Alert State
+      let distToPlayer = 999;
+      if (playerPos) {
+        distToPlayer = bird.currentPos.distanceTo(
+          new THREE.Vector3(playerPos.x, playerPos.y, playerPos.z)
+        );
+      }
+
+      if (distToPlayer < 6.5 && bird.state !== 'BRANCH_HOP') {
+        // Player is nearby: bird enters alert state, rotates head towards player
+        bird.state = 'ALERT';
+        const toPlayer = new THREE.Vector3(playerPos!.x - bird.currentPos.x, 0, playerPos!.z - bird.currentPos.z).normalize();
+        bird.targetYaw = Math.atan2(toPlayer.x, toPlayer.z);
+        if (bird.action && typeof bird.action.setEffectiveTimeScale === 'function') {
+          bird.action.setEffectiveTimeScale(1.4); // Quick curious head twitches
+        }
+      } else if (bird.state === 'ALERT' && distToPlayer >= 8.0) {
+        // Player walked away: return to calm perching
+        bird.state = 'PERCHED_IDLE';
+        bird.stateTimer = 5.0 + Math.random() * 5.0;
+        bird.targetYaw = bird.baseYaw;
+        if (bird.action && typeof bird.action.setEffectiveTimeScale === 'function') {
+          bird.action.setEffectiveTimeScale(1.0);
+        }
+      }
+
+      // State Handling
+      if (bird.state === 'PERCHED_IDLE') {
+        bird.stateTimer -= dt;
+        if (bird.stateTimer <= 0) {
+          // Transition to branch hop
+          bird.state = 'BRANCH_HOP';
+          bird.stateTimer = 0.38; // 380ms quick hop
+          bird.hopProgress = 0;
+          // Random hop angle: turn by -35 deg to +35 deg along the branch
+          bird.targetYaw = bird.baseYaw + (Math.random() - 0.5) * 1.1;
+        }
+      } else if (bird.state === 'BRANCH_HOP') {
+        bird.hopProgress += dt / 0.38;
+        if (bird.hopProgress >= 1.0) {
+          bird.hopProgress = 1.0;
+          bird.state = 'PERCHED_IDLE';
+          bird.stateTimer = 8.0 + Math.random() * 12.0; // Rest for 8-20s before hopping again
+          bird.pivot.position.y = bird.currentPos.y;
+        } else {
+          // Parabolic hop arc (up to 7cm hop height)
+          const arc = Math.sin(bird.hopProgress * Math.PI);
+          bird.pivot.position.y = bird.currentPos.y + arc * 0.07;
+        }
+      }
+
+      // Smooth yaw interpolation towards target
+      let yawDiff = bird.targetYaw - bird.currentYaw;
+      while (yawDiff > Math.PI) yawDiff -= Math.PI * 2;
+      while (yawDiff < -Math.PI) yawDiff += Math.PI * 2;
+      bird.currentYaw += yawDiff * Math.min(1.0, 10.0 * dt);
+      bird.pivot.rotation.y = bird.currentYaw;
+
+      // Update Animation Mixer (driving head turns, tail bobbing, preening)
+      if (bird.mixer) {
+        bird.mixer.update(dt);
+      }
+    }
+  }
+
+  /**
+   * Distant sparrows flight simulation
+   */
+  private updateDistantSparrows(dt: number): void {
+    for (let i = 0; i < this.distantSparrows.length; i++) {
+      const sparrow = this.distantSparrows[i];
+      sparrow.wanderAngle += (Math.sin(this.time * 0.4 + i) * 0.5) * dt;
+
+      const currentHeading = Math.atan2(sparrow.forward.x, sparrow.forward.z);
+      const targetHeading = currentHeading + Math.sin(sparrow.wanderAngle) * 0.25 * dt;
+
+      sparrow.forward.x = Math.sin(targetHeading);
+      sparrow.forward.z = Math.cos(targetHeading);
+      sparrow.forward.normalize();
+
+      sparrow.velocity.copy(sparrow.forward).multiplyScalar(sparrow.speed);
+      sparrow.position.addScaledVector(sparrow.velocity, dt);
+
+      // Boundary loop for distant sparrows
+      if (sparrow.position.z > -60.0) sparrow.position.z = -190.0;
+      if (sparrow.position.z < -200.0) sparrow.position.z = -70.0;
+      if (sparrow.position.x > 70.0) sparrow.position.x = -30.0;
+      if (sparrow.position.x < -40.0) sparrow.position.x = 60.0;
+
+      sparrow.pivot.position.copy(sparrow.position);
+      const lookTarget = sparrow.position.clone().add(sparrow.forward);
+      sparrow.pivot.lookAt(lookTarget);
+    }
+  }
+
+  public getWildlifeCounts(): { raptors: number; perched: number; sparrows: number } {
+    return {
+      raptors: this.raptors.length,
+      perched: this.perchedBirds.length,
+      sparrows: this.distantSparrows.length,
+    };
+  }
+
+  public getPrimaryRaptorPosition(): THREE.Vector3 | null {
+    return this.raptors.length > 0 ? this.raptors[0].position.clone() : null;
+  }
+
+  public getPerchedBirdPositions(): { species: string; pos: { x: number; y: number; z: number }; state: string }[] {
+    return this.perchedBirds.map((b) => ({
+      species: 'Indian Myna (bird_orange.glb)',
+      pos: {
+        x: Number(b.currentPos.x.toFixed(2)),
+        y: Number(b.currentPos.y.toFixed(2)),
+        z: Number(b.currentPos.z.toFixed(2)),
+      },
+      state: b.state,
+    }));
+  }
+
+  public dispose(): void {
+    for (const r of this.raptors) {
+      if (r.mixer) r.mixer.stopAllAction();
+      this.scene.remove(r.pivot);
+    }
+    for (const p of this.perchedBirds) {
+      if (p.mixer) p.mixer.stopAllAction();
+      this.scene.remove(p.pivot);
+    }
+    for (const s of this.distantSparrows) {
+      this.scene.remove(s.pivot);
+    }
+    this.raptors = [];
+    this.perchedBirds = [];
+    this.distantSparrows = [];
+  }
+}

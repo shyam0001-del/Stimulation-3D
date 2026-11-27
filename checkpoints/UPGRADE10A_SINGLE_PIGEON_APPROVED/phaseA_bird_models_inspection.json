@@ -1,0 +1,2185 @@
+[
+  {
+    "file": "animated_bird_pigeon.glb",
+    "sizeBytes": 2792372,
+    "extras": {
+      "author": "dudecon (https://sketchfab.com/dudecon)",
+      "license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+      "source": "https://sketchfab.com/3d-models/animated-bird-pigeon-797d27b68af3453e865149435df6aa30",
+      "title": "Animated Bird, Pigeon"
+    },
+    "texturesCount": 1,
+    "skins": [
+      {
+        "joints": 137,
+        "wingBonesCount": 36,
+        "wingBoneSample": [
+          "ORG-t_feather.L_020",
+          "DEF-t_feather.L_021",
+          "ORG-t_feather.R_022",
+          "DEF-t_feather.R_023",
+          "DEF-t_thumb.001.L_050",
+          "DEF-t_thumb.002.L_051",
+          "DEF-t_thumb.001.R_066",
+          "DEF-t_thumb.002.R_067",
+          "ORG-Wing.L_087",
+          "ORG-Wing.001.L_088",
+          "ORG-Wing.002.L_089",
+          "ORG-w_feather.001.L_090",
+          "DEF-w_feather.001.L_091",
+          "ORG-w_feather.002.L_092"
+        ]
+      }
+    ],
+    "nodeHierarchy": [
+      {
+        "name": "Sketchfab_Scene",
+        "type": "Group",
+        "pos": [
+          0,
+          0,
+          0
+        ],
+        "rotDeg": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "name": "Sketchfab_model",
+        "type": "Object3D",
+        "pos": [
+          0,
+          0,
+          0
+        ],
+        "rotDeg": [
+          -90,
+          0,
+          0
+        ],
+        "scale": [
+          8.7233,
+          8.7233,
+          8.7233
+        ]
+      },
+      {
+        "name": "bird_animation_tweaksfbx",
+        "type": "Object3D",
+        "pos": [
+          0,
+          0,
+          0
+        ],
+        "rotDeg": [
+          90,
+          0,
+          0
+        ],
+        "scale": [
+          0.01,
+          0.01,
+          0.01
+        ]
+      },
+      {
+        "name": "Object_2",
+        "type": "Object3D",
+        "pos": [
+          0,
+          0,
+          0
+        ],
+        "rotDeg": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "name": "RootNode",
+        "type": "Object3D",
+        "pos": [
+          0,
+          0,
+          0
+        ],
+        "rotDeg": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "name": "BirdRig",
+        "type": "Object3D",
+        "pos": [
+          0,
+          0,
+          0
+        ],
+        "rotDeg": [
+          -90,
+          0,
+          0
+        ],
+        "scale": [
+          100,
+          100,
+          100
+        ]
+      },
+      {
+        "name": "Object_5",
+        "type": "Object3D",
+        "pos": [
+          0,
+          0,
+          0
+        ],
+        "rotDeg": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "name": "Object_144",
+        "type": "SkinnedMesh",
+        "pos": [
+          0,
+          0,
+          0
+        ],
+        "rotDeg": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "name": "Object_143",
+        "type": "Object3D",
+        "pos": [
+          0,
+          0,
+          0
+        ],
+        "rotDeg": [
+          -90,
+          0,
+          0
+        ],
+        "scale": [
+          100,
+          100,
+          100
+        ]
+      },
+      {
+        "name": "Bird_Mesh",
+        "type": "Object3D",
+        "pos": [
+          0,
+          0,
+          0
+        ],
+        "rotDeg": [
+          -90,
+          0,
+          0
+        ],
+        "scale": [
+          100,
+          100,
+          100
+        ]
+      }
+    ],
+    "bindPose": {
+      "meshCount": 1,
+      "triCount": 710,
+      "materials": [
+        {
+          "name": "Material.002",
+          "type": "MeshPhysicalMaterial",
+          "roughness": 0.5934120175859654,
+          "metalness": 0,
+          "mapDim": "512x512",
+          "transparent": false,
+          "alphaTest": 0
+        }
+      ],
+      "size": {
+        "x": 4.3641,
+        "y": 0.5861,
+        "z": 2.7265
+      },
+      "min": {
+        "x": -2.1777,
+        "y": -0.3078,
+        "z": -1.7633
+      },
+      "max": {
+        "x": 2.1864,
+        "y": 0.2783,
+        "z": 0.9632
+      }
+    },
+    "animBounds": [
+      {
+        "name": "BirdRig|Flapping",
+        "duration": 0.4,
+        "tracks": 310,
+        "hasScaleTracks": true,
+        "maxExtent": {
+          "x": 3.9678,
+          "y": 2.2717,
+          "z": 2.728
+        },
+        "minExtent": {
+          "x": 1.0434,
+          "y": 1.2702,
+          "z": 2.63
+        },
+        "samples": [
+          {
+            "frac": 0,
+            "size": {
+              "x": 1.0434,
+              "y": 2.0976,
+              "z": 2.728
+            }
+          },
+          {
+            "frac": 0.25,
+            "size": {
+              "x": 3.9678,
+              "y": 1.2702,
+              "z": 2.6645
+            }
+          },
+          {
+            "frac": 0.5,
+            "size": {
+              "x": 2.3634,
+              "y": 2.2381,
+              "z": 2.63
+            }
+          },
+          {
+            "frac": 0.75,
+            "size": {
+              "x": 1.7329,
+              "y": 2.2717,
+              "z": 2.6701
+            }
+          }
+        ],
+        "nonUnitScalesMidAnim": [
+          {
+            "name": "Sketchfab_model",
+            "scale": [
+              8.7233,
+              8.7233,
+              8.7233
+            ]
+          },
+          {
+            "name": "bird_animation_tweaksfbx",
+            "scale": [
+              0.01,
+              0.01,
+              0.01
+            ]
+          },
+          {
+            "name": "BirdRig",
+            "scale": [
+              100,
+              100,
+              100
+            ]
+          },
+          {
+            "name": "root_02",
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "name": "DEF-spine003_03",
+            "scale": [
+              0.9826,
+              1.0357,
+              0.9826
+            ]
+          },
+          {
+            "name": "DEF-spine004_04",
+            "scale": [
+              0.9659,
+              1.0748,
+              0.9635
+            ]
+          },
+          {
+            "name": "DEF-spine005_05",
+            "scale": [
+              1.1234,
+              0.8179,
+              1.0962
+            ]
+          },
+          {
+            "name": "DEF-spine006_06",
+            "scale": [
+              1.0791,
+              0.8567,
+              1.083
+            ]
+          }
+        ]
+      },
+      {
+        "name": "BirdRig|Gliding",
+        "duration": 3.3,
+        "tracks": 373,
+        "hasScaleTracks": true,
+        "maxExtent": {
+          "x": 4.3734,
+          "y": 0.7204,
+          "z": 2.72
+        },
+        "minExtent": {
+          "x": 4.3557,
+          "y": 0.579,
+          "z": 2.7148
+        },
+        "samples": [
+          {
+            "frac": 0,
+            "size": {
+              "x": 4.3576,
+              "y": 0.5824,
+              "z": 2.72
+            }
+          },
+          {
+            "frac": 0.25,
+            "size": {
+              "x": 4.3734,
+              "y": 0.579,
+              "z": 2.7151
+            }
+          },
+          {
+            "frac": 0.5,
+            "size": {
+              "x": 4.3576,
+              "y": 0.5854,
+              "z": 2.7148
+            }
+          },
+          {
+            "frac": 0.75,
+            "size": {
+              "x": 4.3557,
+              "y": 0.7204,
+              "z": 2.7189
+            }
+          }
+        ],
+        "nonUnitScalesMidAnim": [
+          {
+            "name": "Sketchfab_model",
+            "scale": [
+              8.7233,
+              8.7233,
+              8.7233
+            ]
+          },
+          {
+            "name": "bird_animation_tweaksfbx",
+            "scale": [
+              0.01,
+              0.01,
+              0.01
+            ]
+          },
+          {
+            "name": "BirdRig",
+            "scale": [
+              100,
+              100,
+              100
+            ]
+          },
+          {
+            "name": "root_02",
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "name": "DEF-spine003_03",
+            "scale": [
+              0.9735,
+              1.0582,
+              0.9735
+            ]
+          },
+          {
+            "name": "DEF-spine004_04",
+            "scale": [
+              0.9566,
+              1.0989,
+              0.9537
+            ]
+          },
+          {
+            "name": "DEF-spine005_05",
+            "scale": [
+              1.1156,
+              0.8399,
+              1.0823
+            ]
+          },
+          {
+            "name": "DEF-spine006_06",
+            "scale": [
+              1.068,
+              0.8755,
+              1.0699
+            ]
+          }
+        ]
+      },
+      {
+        "name": "BirdRig|Landing",
+        "duration": 1.967,
+        "tracks": 393,
+        "hasScaleTracks": true,
+        "maxExtent": {
+          "x": 4.3576,
+          "y": 1.6182,
+          "z": 2.7271
+        },
+        "minExtent": {
+          "x": 2.1882,
+          "y": 0.586,
+          "z": 2.4951
+        },
+        "samples": [
+          {
+            "frac": 0,
+            "size": {
+              "x": 4.3576,
+              "y": 0.586,
+              "z": 2.7271
+            }
+          },
+          {
+            "frac": 0.25,
+            "size": {
+              "x": 3.0969,
+              "y": 1.6182,
+              "z": 2.4951
+            }
+          },
+          {
+            "frac": 0.5,
+            "size": {
+              "x": 4.2721,
+              "y": 0.952,
+              "z": 2.6157
+            }
+          },
+          {
+            "frac": 0.75,
+            "size": {
+              "x": 2.1882,
+              "y": 1.1514,
+              "z": 2.5555
+            }
+          }
+        ],
+        "nonUnitScalesMidAnim": [
+          {
+            "name": "Sketchfab_model",
+            "scale": [
+              8.7233,
+              8.7233,
+              8.7233
+            ]
+          },
+          {
+            "name": "bird_animation_tweaksfbx",
+            "scale": [
+              0.01,
+              0.01,
+              0.01
+            ]
+          },
+          {
+            "name": "BirdRig",
+            "scale": [
+              100,
+              100,
+              100
+            ]
+          },
+          {
+            "name": "root_02",
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "name": "DEF-spine003_03",
+            "scale": [
+              1.0005,
+              0.9989,
+              1.0005
+            ]
+          },
+          {
+            "name": "DEF-spine004_04",
+            "scale": [
+              0.9962,
+              1.0076,
+              0.9962
+            ]
+          },
+          {
+            "name": "DEF-spine005_05",
+            "scale": [
+              1.0939,
+              0.8373,
+              1.092
+            ]
+          },
+          {
+            "name": "DEF-spine006_06",
+            "scale": [
+              1.0679,
+              0.8729,
+              1.0761
+            ]
+          }
+        ]
+      },
+      {
+        "name": "BirdRig|Standing Idle",
+        "duration": 4.967,
+        "tracks": 358,
+        "hasScaleTracks": true,
+        "maxExtent": {
+          "x": 1.257,
+          "y": 1.856,
+          "z": 2.375
+        },
+        "minExtent": {
+          "x": 1.1078,
+          "y": 1.3197,
+          "z": 2.2087
+        },
+        "samples": [
+          {
+            "frac": 0,
+            "size": {
+              "x": 1.1079,
+              "y": 1.7504,
+              "z": 2.2284
+            }
+          },
+          {
+            "frac": 0.25,
+            "size": {
+              "x": 1.257,
+              "y": 1.3197,
+              "z": 2.375
+            }
+          },
+          {
+            "frac": 0.5,
+            "size": {
+              "x": 1.1078,
+              "y": 1.856,
+              "z": 2.2087
+            }
+          },
+          {
+            "frac": 0.75,
+            "size": {
+              "x": 1.1079,
+              "y": 1.7816,
+              "z": 2.257
+            }
+          }
+        ],
+        "nonUnitScalesMidAnim": [
+          {
+            "name": "Sketchfab_model",
+            "scale": [
+              8.7233,
+              8.7233,
+              8.7233
+            ]
+          },
+          {
+            "name": "bird_animation_tweaksfbx",
+            "scale": [
+              0.01,
+              0.01,
+              0.01
+            ]
+          },
+          {
+            "name": "BirdRig",
+            "scale": [
+              100,
+              100,
+              100
+            ]
+          },
+          {
+            "name": "root_02",
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "name": "DEF-spine003_03",
+            "scale": [
+              1.0348,
+              0.9339,
+              1.0348
+            ]
+          },
+          {
+            "name": "DEF-spine004_04",
+            "scale": [
+              1.062,
+              0.8854,
+              1.0638
+            ]
+          },
+          {
+            "name": "DEF-spine005_05",
+            "scale": [
+              1.0112,
+              0.9351,
+              1.0849
+            ]
+          },
+          {
+            "name": "DEF-spine006_06",
+            "scale": [
+              1.0241,
+              0.9454,
+              1.0402
+            ]
+          }
+        ]
+      },
+      {
+        "name": "BirdRig|Takeoff",
+        "duration": 1.967,
+        "tracks": 394,
+        "hasScaleTracks": true,
+        "maxExtent": {
+          "x": 4.0342,
+          "y": 2.6541,
+          "z": 2.6434
+        },
+        "minExtent": {
+          "x": 1.1049,
+          "y": 1.2257,
+          "z": 2.2397
+        },
+        "samples": [
+          {
+            "frac": 0,
+            "size": {
+              "x": 1.1049,
+              "y": 1.7356,
+              "z": 2.2397
+            }
+          },
+          {
+            "frac": 0.25,
+            "size": {
+              "x": 2.9636,
+              "y": 2.6541,
+              "z": 2.5558
+            }
+          },
+          {
+            "frac": 0.5,
+            "size": {
+              "x": 1.5756,
+              "y": 2.6475,
+              "z": 2.6434
+            }
+          },
+          {
+            "frac": 0.75,
+            "size": {
+              "x": 4.0342,
+              "y": 1.2257,
+              "z": 2.4483
+            }
+          }
+        ],
+        "nonUnitScalesMidAnim": [
+          {
+            "name": "Sketchfab_model",
+            "scale": [
+              8.7233,
+              8.7233,
+              8.7233
+            ]
+          },
+          {
+            "name": "bird_animation_tweaksfbx",
+            "scale": [
+              0.01,
+              0.01,
+              0.01
+            ]
+          },
+          {
+            "name": "BirdRig",
+            "scale": [
+              100,
+              100,
+              100
+            ]
+          },
+          {
+            "name": "root_02",
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "name": "DEF-spine003_03",
+            "scale": [
+              0.976,
+              1.0498,
+              0.976
+            ]
+          },
+          {
+            "name": "DEF-spine004_04",
+            "scale": [
+              0.963,
+              1.081,
+              0.9609
+            ]
+          },
+          {
+            "name": "DEF-spine005_05",
+            "scale": [
+              1.1022,
+              0.8525,
+              1.0743
+            ]
+          },
+          {
+            "name": "DEF-spine006_06",
+            "scale": [
+              1.0606,
+              0.8876,
+              1.0626
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "file": "animated_eagle.glb",
+    "sizeBytes": 3276284,
+    "extras": {
+      "author": "Clement Abai (https://sketchfab.com/clement.abai)",
+      "license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+      "source": "https://sketchfab.com/3d-models/animated-eagle-de73b663acbc426e8e6c107fd25e08cd",
+      "title": "Animated Eagle"
+    },
+    "texturesCount": 1,
+    "skins": [
+      {
+        "joints": 87,
+        "wingBonesCount": 0,
+        "wingBoneSample": []
+      }
+    ],
+    "nodeHierarchy": [
+      {
+        "name": "Sketchfab_Scene",
+        "type": "Group",
+        "pos": [
+          0,
+          0,
+          0
+        ],
+        "rotDeg": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "name": "Sketchfab_model",
+        "type": "Object3D",
+        "pos": [
+          0,
+          0,
+          0
+        ],
+        "rotDeg": [
+          -90,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "name": "root",
+        "type": "Object3D",
+        "pos": [
+          0,
+          0,
+          0
+        ],
+        "rotDeg": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "name": "GLTF_SceneRootNode",
+        "type": "Object3D",
+        "pos": [
+          0,
+          0,
+          0
+        ],
+        "rotDeg": [
+          90,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "name": "RootNode_(gltf_orientation_matrix)_0",
+        "type": "Object3D",
+        "pos": [
+          0,
+          0,
+          0
+        ],
+        "rotDeg": [
+          -90,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "name": "RootNode_(model_correction_matrix)_1",
+        "type": "Object3D",
+        "pos": [
+          0,
+          0,
+          0
+        ],
+        "rotDeg": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "name": "38309fff78814a15a79532505b76124afbx_2",
+        "type": "Object3D",
+        "pos": [
+          0,
+          0,
+          0
+        ],
+        "rotDeg": [
+          90,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "name": "_3",
+        "type": "Object3D",
+        "pos": [
+          0,
+          0,
+          0
+        ],
+        "rotDeg": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "name": "RootNode_4",
+        "type": "Object3D",
+        "pos": [
+          0,
+          0,
+          0
+        ],
+        "rotDeg": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "name": "Eagle_Animata_5",
+        "type": "Object3D",
+        "pos": [
+          0,
+          0,
+          0
+        ],
+        "rotDeg": [
+          -90,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "name": "Eagle(0)_6",
+        "type": "Object3D",
+        "pos": [
+          -100,
+          -100,
+          0
+        ],
+        "rotDeg": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "name": "Bip01_7",
+        "type": "Object3D",
+        "pos": [
+          0,
+          0,
+          74.9568
+        ],
+        "rotDeg": [
+          -6.09,
+          0,
+          -90
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "name": "_8",
+        "type": "Object3D",
+        "pos": [
+          0,
+          0,
+          0
+        ],
+        "rotDeg": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "name": "GLTF_created_0",
+        "type": "Object3D",
+        "pos": [
+          0,
+          0,
+          0
+        ],
+        "rotDeg": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "name": "Object_15",
+        "type": "SkinnedMesh",
+        "pos": [
+          0,
+          0,
+          0
+        ],
+        "rotDeg": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "name": "_96",
+        "type": "Object3D",
+        "pos": [
+          0,
+          0,
+          0
+        ],
+        "rotDeg": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      }
+    ],
+    "bindPose": {
+      "meshCount": 1,
+      "triCount": 3858,
+      "materials": [
+        {
+          "name": "lambert4SG",
+          "type": "MeshStandardMaterial",
+          "roughness": 0.6,
+          "metalness": 0,
+          "mapDim": "1024x1024",
+          "transparent": true,
+          "alphaTest": 0
+        }
+      ],
+      "size": {
+        "x": 143.5755,
+        "y": 76.2758,
+        "z": 86.5283
+      },
+      "min": {
+        "x": -171.7884,
+        "y": 65.0336,
+        "z": 50.1821
+      },
+      "max": {
+        "x": -28.2129,
+        "y": 141.3094,
+        "z": 136.7104
+      }
+    },
+    "animBounds": [
+      {
+        "name": "motion4",
+        "duration": 8.667,
+        "tracks": 173,
+        "hasScaleTracks": false,
+        "maxExtent": {
+          "x": 174.6702,
+          "y": 76.2758,
+          "z": 86.5283
+        },
+        "minExtent": {
+          "x": 81.8849,
+          "y": 35.1239,
+          "z": 85.1321
+        },
+        "samples": [
+          {
+            "frac": 0,
+            "size": {
+              "x": 143.5755,
+              "y": 76.2758,
+              "z": 86.5283
+            }
+          },
+          {
+            "frac": 0.25,
+            "size": {
+              "x": 174.6702,
+              "y": 35.1239,
+              "z": 85.9223
+            }
+          },
+          {
+            "frac": 0.5,
+            "size": {
+              "x": 81.8849,
+              "y": 75.9858,
+              "z": 85.1321
+            }
+          },
+          {
+            "frac": 0.75,
+            "size": {
+              "x": 152.4353,
+              "y": 67.9405,
+              "z": 86.4064
+            }
+          }
+        ],
+        "nonUnitScalesMidAnim": []
+      }
+    ],
+    "clipPreviews": null
+  },
+  {
+    "file": "animated_parrot.glb",
+    "sizeBytes": 7719980,
+    "extras": {
+      "author": "Guimplenum (https://sketchfab.com/Guimplenum)",
+      "license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+      "source": "https://sketchfab.com/3d-models/animated-parrot-923f55bb3765419ebeb9ba403b58b688",
+      "title": "Animated parrot"
+    },
+    "texturesCount": 1,
+    "skins": [
+      {
+        "joints": 713,
+        "wingBonesCount": 401,
+        "wingBoneSample": [
+          "DEF_FEATHER_BACK_SMALL_LOW_02_028",
+          "DEF_FEATHER_BACK_SMALL_LOW_02_02_029",
+          "DEF_FEATHER_BACK_SMALL_LOW_01_030",
+          "DEF_FEATHER_BACK_SMALL_LOW_01_02_031",
+          "DEF_FEATHER_BACK_SMALL_LOW_03_032",
+          "DEF_FEATHER_BACK_SMALL_LOW_03_02_033",
+          "DEF_FEATHER_BACK_SMALL_UP_01_034",
+          "DEF_FEATHER_BACK_SMALL_UP_01_02_035",
+          "DEF_FEATHER_BACK_SMALL_UP_02_036",
+          "DEF_FEATHER_BACK_SMALL_UP_02_02_037",
+          "DEF_FEATHER_BACK_SMALL_UP_03_038",
+          "DEF_FEATHER_BACK_SMALL_UP_03_02_039",
+          "DEF_FEATHER_BACK_SMALL_UP_04_040",
+          "DEF_FEATHER_BACK_SMALL_UP_04_02_041"
+        ]
+      }
+    ],
+    "nodeHierarchy": [
+      {
+        "name": "Sketchfab_Scene",
+        "type": "Group",
+        "pos": [
+          0,
+          0,
+          0
+        ],
+        "rotDeg": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "name": "Sketchfab_model",
+        "type": "Object3D",
+        "pos": [
+          0,
+          0,
+          0
+        ],
+        "rotDeg": [
+          -180,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "name": "130cc7594bbc48d1a9897ebad5045e99fbx",
+        "type": "Object3D",
+        "pos": [
+          0,
+          0,
+          0
+        ],
+        "rotDeg": [
+          90,
+          0,
+          0
+        ],
+        "scale": [
+          0.01,
+          0.01,
+          0.01
+        ]
+      },
+      {
+        "name": "Object_2",
+        "type": "Object3D",
+        "pos": [
+          0,
+          0,
+          0
+        ],
+        "rotDeg": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "name": "RootNode",
+        "type": "Object3D",
+        "pos": [
+          0,
+          0,
+          0
+        ],
+        "rotDeg": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "name": "Armature_parrot",
+        "type": "Object3D",
+        "pos": [
+          0,
+          0,
+          0
+        ],
+        "rotDeg": [
+          -90,
+          0,
+          0
+        ],
+        "scale": [
+          100,
+          100,
+          100
+        ]
+      },
+      {
+        "name": "Object_5",
+        "type": "Object3D",
+        "pos": [
+          0,
+          0,
+          0
+        ],
+        "rotDeg": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "name": "Object_720",
+        "type": "SkinnedMesh",
+        "pos": [
+          0,
+          0,
+          0
+        ],
+        "rotDeg": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "name": "Object_721",
+        "type": "SkinnedMesh",
+        "pos": [
+          0,
+          0,
+          0
+        ],
+        "rotDeg": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "name": "Object_719",
+        "type": "Object3D",
+        "pos": [
+          0,
+          0,
+          0
+        ],
+        "rotDeg": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          100,
+          100,
+          100
+        ]
+      },
+      {
+        "name": "Parrot",
+        "type": "Object3D",
+        "pos": [
+          0,
+          0,
+          0
+        ],
+        "rotDeg": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          100,
+          100,
+          100
+        ]
+      }
+    ],
+    "bindPose": {
+      "meshCount": 2,
+      "triCount": 39340,
+      "materials": [
+        {
+          "name": "lambert7SG",
+          "type": "MeshStandardMaterial",
+          "roughness": 1,
+          "metalness": 0,
+          "mapDim": "1024x1024",
+          "transparent": false,
+          "alphaTest": 0
+        },
+        {
+          "name": "Tongue",
+          "type": "MeshStandardMaterial",
+          "roughness": 0.2850609756097561,
+          "metalness": 0,
+          "mapDim": null,
+          "transparent": false,
+          "alphaTest": 0
+        }
+      ],
+      "size": {
+        "x": 2.7341,
+        "y": 2.4369,
+        "z": 1.3421
+      },
+      "min": {
+        "x": -1.3991,
+        "y": -0.1779,
+        "z": -0.9123
+      },
+      "max": {
+        "x": 1.335,
+        "y": 2.2589,
+        "z": 0.4297
+      }
+    },
+    "animBounds": [
+      {
+        "name": "01-flip",
+        "duration": 3.333,
+        "tracks": 2085,
+        "hasScaleTracks": true,
+        "maxExtent": {
+          "x": 2.7341,
+          "y": 2.4369,
+          "z": 1.8928
+        },
+        "minExtent": {
+          "x": 1.3559,
+          "y": 1.6589,
+          "z": 1.1676
+        },
+        "samples": [
+          {
+            "frac": 0,
+            "size": {
+              "x": 2.7341,
+              "y": 2.4369,
+              "z": 1.3421
+            }
+          },
+          {
+            "frac": 0.25,
+            "size": {
+              "x": 1.3559,
+              "y": 1.6589,
+              "z": 1.3958
+            }
+          },
+          {
+            "frac": 0.5,
+            "size": {
+              "x": 2.0936,
+              "y": 2.4317,
+              "z": 1.1676
+            }
+          },
+          {
+            "frac": 0.75,
+            "size": {
+              "x": 2.0301,
+              "y": 2.1789,
+              "z": 1.8928
+            }
+          }
+        ],
+        "nonUnitScalesMidAnim": [
+          {
+            "name": "130cc7594bbc48d1a9897ebad5045e99fbx",
+            "scale": [
+              0.01,
+              0.01,
+              0.01
+            ]
+          },
+          {
+            "name": "Armature_parrot",
+            "scale": [
+              100,
+              100,
+              100
+            ]
+          },
+          {
+            "name": "DEF_HIPS_08",
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "name": "DEF_LEGL_09",
+            "scale": [
+              1.0003,
+              0.9998,
+              1.0003
+            ]
+          },
+          {
+            "name": "DEF_SHINL_010",
+            "scale": [
+              1.0001,
+              0.9996,
+              1.0004
+            ]
+          },
+          {
+            "name": "DEF_FOOTL_011",
+            "scale": [
+              0.9996,
+              0.9996,
+              1.0003
+            ]
+          },
+          {
+            "name": "DEF_PALM_BACK_01L_012",
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "name": "DEF_PALM_BACK_02L_013",
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          }
+        ]
+      },
+      {
+        "name": "02-flying",
+        "duration": 0.6,
+        "tracks": 933,
+        "hasScaleTracks": true,
+        "maxExtent": {
+          "x": 3.1835,
+          "y": 1.7572,
+          "z": 2.3031
+        },
+        "minExtent": {
+          "x": 2.4276,
+          "y": 1.2968,
+          "z": 2.2441
+        },
+        "samples": [
+          {
+            "frac": 0,
+            "size": {
+              "x": 2.4276,
+              "y": 1.6846,
+              "z": 2.2441
+            }
+          },
+          {
+            "frac": 0.25,
+            "size": {
+              "x": 3.1835,
+              "y": 1.2968,
+              "z": 2.252
+            }
+          },
+          {
+            "frac": 0.5,
+            "size": {
+              "x": 2.4632,
+              "y": 1.7572,
+              "z": 2.3031
+            }
+          },
+          {
+            "frac": 0.75,
+            "size": {
+              "x": 2.7921,
+              "y": 1.3747,
+              "z": 2.2685
+            }
+          }
+        ],
+        "nonUnitScalesMidAnim": [
+          {
+            "name": "130cc7594bbc48d1a9897ebad5045e99fbx",
+            "scale": [
+              0.01,
+              0.01,
+              0.01
+            ]
+          },
+          {
+            "name": "Armature_parrot",
+            "scale": [
+              100,
+              100,
+              100
+            ]
+          },
+          {
+            "name": "DEF_HIPS_08",
+            "scale": [
+              0.9793,
+              1.0429,
+              0.9793
+            ]
+          },
+          {
+            "name": "DEF_LEGL_09",
+            "scale": [
+              1.0163,
+              1.0149,
+              0.9693
+            ]
+          },
+          {
+            "name": "DEF_SHINL_010",
+            "scale": [
+              1.0178,
+              0.976,
+              1.0068
+            ]
+          },
+          {
+            "name": "DEF_FOOTL_011",
+            "scale": [
+              0.9868,
+              0.9994,
+              1.0144
+            ]
+          },
+          {
+            "name": "DEF_PALM_BACK_01L_012",
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "name": "DEF_PALM_BACK_02L_013",
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          }
+        ]
+      }
+    ],
+    "clipPreviews": null
+  },
+  {
+    "file": "animated-pigeon-3d-model.glb",
+    "sizeBytes": 7479028,
+    "extras": {
+      "author": "xyina124 (https://sketchfab.com/xyina124)",
+      "license": "CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)",
+      "source": "https://sketchfab.com/3d-models/animated-pigeon-3d-model-f1397b88dc6744578767fa3253ac7bbc",
+      "title": "Animated-pigeon-3d-model"
+    },
+    "texturesCount": 3,
+    "skins": [
+      {
+        "joints": 76,
+        "wingBonesCount": 22,
+        "wingBoneSample": [
+          "t_feather.L_0",
+          "t_feather.R_1",
+          "Wing.L_11",
+          "Wing.001.L_9",
+          "Wing.002.L_7",
+          "w_feather.001.L_5",
+          "w_feather.002.L_6",
+          "w_feather.003.L_8",
+          "w_feather.004.L_10",
+          "n_feather.001.L_22",
+          "n_feather.001.R_23",
+          "Wing.R_36",
+          "Wing.001.R_34",
+          "Wing.002.R_32"
+        ]
+      }
+    ],
+    "nodeHierarchy": [
+      {
+        "name": "Sketchfab_Scene",
+        "type": "Group",
+        "pos": [
+          0,
+          0,
+          0
+        ],
+        "rotDeg": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "name": "Sketchfab_model",
+        "type": "Object3D",
+        "pos": [
+          0,
+          0,
+          0
+        ],
+        "rotDeg": [
+          -90,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "name": "root",
+        "type": "Object3D",
+        "pos": [
+          0,
+          0,
+          0
+        ],
+        "rotDeg": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "name": "GLTF_SceneRootNode",
+        "type": "Object3D",
+        "pos": [
+          0,
+          0,
+          0
+        ],
+        "rotDeg": [
+          90,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "name": "metarig_77",
+        "type": "Object3D",
+        "pos": [
+          -1.7132,
+          1.7471,
+          -1.0183
+        ],
+        "rotDeg": [
+          -59.48,
+          65.24,
+          48.03
+        ],
+        "scale": [
+          2.9659,
+          2.9659,
+          3.1932
+        ]
+      },
+      {
+        "name": "GLTF_created_0",
+        "type": "Object3D",
+        "pos": [
+          0,
+          0,
+          0
+        ],
+        "rotDeg": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "name": "Object_7",
+        "type": "SkinnedMesh",
+        "pos": [
+          0,
+          0,
+          0
+        ],
+        "rotDeg": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "name": "Object_8",
+        "type": "SkinnedMesh",
+        "pos": [
+          0,
+          0,
+          0
+        ],
+        "rotDeg": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "name": "Object_9",
+        "type": "SkinnedMesh",
+        "pos": [
+          0,
+          0,
+          0
+        ],
+        "rotDeg": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "name": "Object_10",
+        "type": "SkinnedMesh",
+        "pos": [
+          0,
+          0,
+          0
+        ],
+        "rotDeg": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      {
+        "name": "body_pigeon_75",
+        "type": "Object3D",
+        "pos": [
+          0,
+          0,
+          0
+        ],
+        "rotDeg": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      }
+    ],
+    "bindPose": {
+      "meshCount": 4,
+      "triCount": 59578,
+      "materials": [
+        {
+          "name": "wing",
+          "type": "MeshStandardMaterial",
+          "roughness": 1,
+          "metalness": 1,
+          "mapDim": "1024x1024",
+          "transparent": false,
+          "alphaTest": 0.5
+        },
+        {
+          "name": "body",
+          "type": "MeshStandardMaterial",
+          "roughness": 1,
+          "metalness": 1,
+          "mapDim": "1024x1024",
+          "transparent": false,
+          "alphaTest": 0.5
+        },
+        {
+          "name": "feeathers",
+          "type": "MeshStandardMaterial",
+          "roughness": 1,
+          "metalness": 1,
+          "mapDim": "1024x1024",
+          "transparent": false,
+          "alphaTest": 0.5
+        },
+        {
+          "name": "Material.001",
+          "type": "MeshStandardMaterial",
+          "roughness": 1,
+          "metalness": 1,
+          "mapDim": null,
+          "transparent": false,
+          "alphaTest": 0
+        }
+      ],
+      "size": {
+        "x": 0.9306,
+        "y": 1.1989,
+        "z": 1.8506
+      },
+      "min": {
+        "x": -2.4056,
+        "y": 1.4825,
+        "z": -2.1483
+      },
+      "max": {
+        "x": -1.475,
+        "y": 2.6814,
+        "z": -0.2977
+      }
+    },
+    "animBounds": [
+      {
+        "name": "metarigAction.004",
+        "duration": 4.042,
+        "tracks": 191,
+        "hasScaleTracks": true,
+        "maxExtent": {
+          "x": 0.9917,
+          "y": 1.1989,
+          "z": 1.9193
+        },
+        "minExtent": {
+          "x": 0.8323,
+          "y": 0.9828,
+          "z": 1.1556
+        },
+        "samples": [
+          {
+            "frac": 0,
+            "size": {
+              "x": 0.9306,
+              "y": 1.1989,
+              "z": 1.8506
+            }
+          },
+          {
+            "frac": 0.25,
+            "size": {
+              "x": 0.9917,
+              "y": 0.9828,
+              "z": 1.1556
+            }
+          },
+          {
+            "frac": 0.5,
+            "size": {
+              "x": 0.8323,
+              "y": 1.1474,
+              "z": 1.8043
+            }
+          },
+          {
+            "frac": 0.75,
+            "size": {
+              "x": 0.9554,
+              "y": 0.9885,
+              "z": 1.9193
+            }
+          }
+        ],
+        "nonUnitScalesMidAnim": [
+          {
+            "name": "metarig_77",
+            "scale": [
+              2.9659,
+              2.9659,
+              3.1932
+            ]
+          },
+          {
+            "name": "spine003_74",
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "name": "spine002_4",
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "name": "spine001_3",
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "name": "spine_2",
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "name": "t_featherL_0",
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "name": "t_featherR_1",
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "name": "spine004_73",
+            "scale": [
+              1,
+              1,
+              1
+            ]
+          }
+        ]
+      }
+    ],
+    "clipPreviews": null
+  }
+]

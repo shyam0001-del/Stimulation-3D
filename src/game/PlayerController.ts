@@ -30,6 +30,7 @@ export class PlayerController {
   public isGrounded = true;
   public isSprinting = false;
   public currentSpeed = 0;
+  public currentVel = { x: 0, y: 0, z: 0 };
   private walkCycle = 0;
   private groundGraceTimer = 0;
   private wasSpacePressed = false;
@@ -58,8 +59,11 @@ export class PlayerController {
   // Input Tracking
   public keys: Record<string, boolean> = {};
 
-  // Spawn Point: North Main Entrance Gate, facing South (+Z) down 12M Spine Avenue
-  public readonly defaultSpawn = { x: 25, y: 1.5, z: -168 };
+  // Reset Request Callback (delegated to GameEngine to sync player & camera)
+  public onResetRequested?: () => void;
+
+  // Spawn Point: North Main Entrance Gate Forecourt, facing South (+Z) into campus
+  public readonly defaultSpawn = { x: 25.0, y: 1.0, z: -184.0 };
   private pendingTeleport: { x: number; y: number; z: number; facingAngle: number } | null = null;
 
   constructor(scene: THREE.Scene, physics: PhysicsWorld) {
@@ -217,7 +221,8 @@ export class PlayerController {
                   mat.alphaTest = 0.5;
                   mat.alphaToCoverage = true;
                   if (stdMat.normalMap) stdMat.normalScale.set(0.6, 0.6);
-                  stdMat.envMapIntensity = 0.4;
+                  stdMat.roughness = 0.65;
+                  stdMat.envMapIntensity = 0.35; // Natural sheen along soft black hair strands
                   mat.needsUpdate = true;
                 } else if (child.name === 'Eyelashes' || mat.name === 'Eyelashmat') {
                   mat.transparent = false;
@@ -492,7 +497,11 @@ export class PlayerController {
     window.addEventListener('keydown', (e) => {
       this.keys[e.code] = true;
       if (e.code === 'KeyR') {
-        this.resetPosition();
+        if (this.onResetRequested) {
+          this.onResetRequested();
+        } else {
+          this.resetPosition();
+        }
       }
     });
 
@@ -641,6 +650,9 @@ export class PlayerController {
 
       // Camera forward vector in world: (-sinA, -cosA)
       // Camera right vector in world:   (cosA, -sinA)
+      // worldDir = nx * right + nz * forward
+      // worldDir.x = nx * cosA - nz * sinA
+      // worldDir.z = -nx * sinA - nz * cosA
       const worldDirX = nx * cosA - nz * sinA;
       const worldDirZ = -nx * sinA - nz * cosA;
 
@@ -670,6 +682,9 @@ export class PlayerController {
       this.jumpCooldown = 0.20; // 200ms liftoff lockout prevents double-jumping
     }
 
+    this.currentVel.x = newVx;
+    this.currentVel.y = newVy;
+    this.currentVel.z = newVz;
     this.rigidBody.setLinvel({ x: newVx, y: newVy, z: newVz }, true);
     this.currentSpeed = Math.hypot(newVx, newVz);
 
@@ -796,16 +811,33 @@ export class PlayerController {
   }
 
   public updateVisuals(): void {
-    const pos = this.rigidBody.translation();
-    const bottomY = pos.y - (this.capsuleHalfHeight + this.capsuleRadius);
-    this.mesh.position.set(pos.x, bottomY, pos.z);
+    try {
+      if (this.rigidBody && typeof this.rigidBody.translation === 'function') {
+        const pos = this.rigidBody.translation();
+        const bottomY = pos.y - (this.capsuleHalfHeight + this.capsuleRadius);
+        this.mesh.position.set(pos.x, bottomY, pos.z);
+      }
+    } catch {
+      // Suppress transient WASM borrow error
+    }
   }
 
   public getPosition(): { x: number; y: number; z: number } {
     if (this.pendingTeleport) {
       return { x: this.pendingTeleport.x, y: this.pendingTeleport.y, z: this.pendingTeleport.z };
     }
-    return this.rigidBody.translation();
+    try {
+      if (this.rigidBody && typeof this.rigidBody.translation === 'function') {
+        return this.rigidBody.translation();
+      }
+    } catch {
+      // Fallback to mesh position if Rapier WASM is reloading
+    }
+    return {
+      x: this.mesh.position.x,
+      y: this.mesh.position.y + (this.capsuleHalfHeight + this.capsuleRadius),
+      z: this.mesh.position.z,
+    };
   }
 
   /**

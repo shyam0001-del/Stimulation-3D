@@ -1,0 +1,396 @@
+{
+  "metricsAudit": {
+    "counts": {
+      "pigeons": 1,
+      "raptors": 0,
+      "perched": 0,
+      "sparrows": 0
+    },
+    "animatedMetrics": {
+      "normScale": 0.14177,
+      "glidingWingspanMeters": 0.62,
+      "glidingLengthMeters": 0.3849,
+      "standingBodyLengthMeters": 0.3367,
+      "flappingSpanRangeMeters": [
+        0.1479,
+        0.5625
+      ],
+      "triangles": 710,
+      "meshes": 1
+    },
+    "initialState": {
+      "position": {
+        "x": 31.32,
+        "y": 13.72,
+        "z": -176.72
+      },
+      "flightState": "FLAP_BURST",
+      "speed": 10.47,
+      "wingspanMeters": 0.62,
+      "bodyLengthMeters": 0.337,
+      "yawDeg": 15.3,
+      "bankDeg": -6.1,
+      "pitchDeg": -6.1
+    },
+    "dpr": 1,
+    "size": {
+      "width": 1280,
+      "height": 720
+    }
+  },
+  "perfDisabled": {
+    "pigeonEnabled": false,
+    "wallClockMs": 60002,
+    "framesRendered": 3601,
+    "avgFps": 60.01,
+    "onePercentLowFps": 59.52,
+    "avgFrameTimeMs": 16.66,
+    "p99FrameTimeMs": 16.8,
+    "maxFrameTimeMs": 16.8,
+    "spikesOver20ms": 0,
+    "spikesOver33ms": 0,
+    "avgDrawCalls": 199,
+    "avgTriangles": 969470,
+    "animCpuStats": {
+      "lastMs": 0,
+      "avgMs": 0,
+      "samples": 0
+    },
+    "statesSeen": [],
+    "obstacleOverlaps": 0,
+    "minPlayerDist": null,
+    "minCameraDist": null,
+    "minTreeTopClearance": null,
+    "trajectorySamples": []
+  },
+  "perfEnabled": {
+    "pigeonEnabled": true,
+    "wallClockMs": 60010,
+    "framesRendered": 3601,
+    "avgFps": 60.01,
+    "onePercentLowFps": 59.52,
+    "avgFrameTimeMs": 16.66,
+    "p99FrameTimeMs": 16.8,
+    "maxFrameTimeMs": 16.8,
+    "spikesOver20ms": 0,
+    "spikesOver33ms": 0,
+    "avgDrawCalls": 216,
+    "avgTriangles": 1018996,
+    "animCpuStats": {
+      "lastMs": 0,
+      "avgMs": 0.0861,
+      "samples": 3620
+    },
+    "statesSeen": [
+      "FLAP_BURST",
+      "GLIDE"
+    ],
+    "obstacleOverlaps": 0,
+    "minPlayerDist": 12.52,
+    "minCameraDist": 12.53,
+    "minTreeTopClearance": 1.09,
+    "trajectorySamples": [
+      {
+        "tSec": 0,
+        "position": {
+          "x": 26.9,
+          "y": 11.43,
+          "z": -193.22
+        },
+        "flightState": "FLAP_BURST",
+        "speed": 10.38,
+        "wingspanMeters": 0.62,
+        "bodyLengthMeters": 0.337,
+        "yawDeg": 46.8,
+        "bankDeg": 24.3,
+        "pitchDeg": -4.6
+      },
+      {
+        "tSec": 3,
+        "position": {
+          "x": 38.48,
+          "y": 13.26,
+          "z": -166.06
+        },
+        "flightState": "GLIDE",
+        "speed": 9,
+        "wingspanMeters": 0.62,
+        "bodyLengthMeters": 0.337,
+        "yawDeg": 36.4,
+        "bankDeg": -0.8,
+        "pitchDeg": 9.2
+      },
+      {
+        "tSec": 6,
+        "position": {
+          "x": 55.05,
+          "y": 8.41,
+          "z": -144.99
+        },
+        "flightState": "FLAP_BURST",
+        "speed": 10.15,
+        "wingspanMeters": 0.62,
+        "bodyLengthMeters": 0.337,
+        "yawDeg": 31.6,
+        "bankDeg": 3.8,
+        "pitchDeg": 7.1
+      },
+      {
+        "tSec": 9.1,
+        "position": {
+          "x": 55.01,
+          "y": 6.27,
+          "z": -116.53
+        },
+        "flightState": "GLIDE",
+        "speed": 8.85,
+        "wingspanMeters": 0.62,
+        "bodyLengthMeters": 0.337,
+        "yawDeg": -23.1,
+        "bankDeg": -1.8,
+        "pitchDeg": 3.2
+      },
+      {
+        "tSec": 12.1,
+        "position": {
+          "x": 61.02,
+          "y": 8.17,
+          "z": -91.33
+        },
+        "flightState": "FLAP_BURST",
+        "speed": 10.4,
+        "wingspanMeters": 0.62,
+        "bodyLengthMeters": 0.337,
+        "yawDeg": 41.2,
+        "bankDeg": -3.1,
+        "pitchDeg": -6.3
+      },
+      {
+        "tSec": 15.1,
+        "position": {
+          "x": 66.59,
+          "y": 9.66,
+          "z": -67.79
+        },
+        "flightState": "GLIDE",
+        "speed": 8.45,
+        "wingspanMeters": 0.62,
+        "bodyLengthMeters": 0.337,
+        "yawDeg": -43.6,
+        "bankDeg": 12.8,
+        "pitchDeg": -6
+      },
+      {
+        "tSec": 18.1,
+        "position": {
+          "x": 41.18,
+          "y": 13.66,
+          "z": -55.67
+        },
+        "flightState": "FLAP_BURST",
+        "speed": 10.46,
+        "wingspanMeters": 0.62,
+        "bodyLengthMeters": 0.337,
+        "yawDeg": -87.6,
+        "bankDeg": 11.4,
+        "pitchDeg": -5.9
+      },
+      {
+        "tSec": 21.1,
+        "position": {
+          "x": 23.37,
+          "y": 13.68,
+          "z": -72.91
+        },
+        "flightState": "GLIDE",
+        "speed": 8.62,
+        "wingspanMeters": 0.62,
+        "bodyLengthMeters": 0.337,
+        "yawDeg": -177.3,
+        "bankDeg": 8.7,
+        "pitchDeg": 0.3
+      },
+      {
+        "tSec": 24.1,
+        "position": {
+          "x": 25.79,
+          "y": 13.98,
+          "z": -103.01
+        },
+        "flightState": "FLAP_BURST",
+        "speed": 10.74,
+        "wingspanMeters": 0.62,
+        "bodyLengthMeters": 0.337,
+        "yawDeg": 179.1,
+        "bankDeg": -2.5,
+        "pitchDeg": 2.2
+      },
+      {
+        "tSec": 27.1,
+        "position": {
+          "x": 24.65,
+          "y": 12.5,
+          "z": -130.16
+        },
+        "flightState": "GLIDE",
+        "speed": 8.6,
+        "wingspanMeters": 0.62,
+        "bodyLengthMeters": 0.337,
+        "yawDeg": -175.6,
+        "bankDeg": -0.8,
+        "pitchDeg": -0.7
+      },
+      {
+        "tSec": 30.1,
+        "position": {
+          "x": 20.47,
+          "y": 14.26,
+          "z": -158.45
+        },
+        "flightState": "FLAP_BURST",
+        "speed": 10.55,
+        "wingspanMeters": 0.62,
+        "bodyLengthMeters": 0.337,
+        "yawDeg": -168.7,
+        "bankDeg": -0.1,
+        "pitchDeg": -2.4
+      },
+      {
+        "tSec": 33.2,
+        "position": {
+          "x": 18.36,
+          "y": 12.72,
+          "z": -185.75
+        },
+        "flightState": "GLIDE",
+        "speed": 8.73,
+        "wingspanMeters": 0.62,
+        "bodyLengthMeters": 0.337,
+        "yawDeg": 172.1,
+        "bankDeg": 4.1,
+        "pitchDeg": 4.4
+      },
+      {
+        "tSec": 36.2,
+        "position": {
+          "x": 27.5,
+          "y": 14.83,
+          "z": -178.86
+        },
+        "flightState": "FLAP_BURST",
+        "speed": 10.43,
+        "wingspanMeters": 0.62,
+        "bodyLengthMeters": 0.337,
+        "yawDeg": 1.5,
+        "bankDeg": -9.7,
+        "pitchDeg": -4.9
+      },
+      {
+        "tSec": 39.2,
+        "position": {
+          "x": 43.47,
+          "y": 11.02,
+          "z": -157.67
+        },
+        "flightState": "GLIDE",
+        "speed": 8.99,
+        "wingspanMeters": 0.62,
+        "bodyLengthMeters": 0.337,
+        "yawDeg": 49.1,
+        "bankDeg": 2.4,
+        "pitchDeg": 14.4
+      },
+      {
+        "tSec": 42.2,
+        "position": {
+          "x": 60.49,
+          "y": 7.42,
+          "z": -134
+        },
+        "flightState": "FLAP_BURST",
+        "speed": 10.77,
+        "wingspanMeters": 0.62,
+        "bodyLengthMeters": 0.337,
+        "yawDeg": 13.9,
+        "bankDeg": 10.9,
+        "pitchDeg": 3.1
+      },
+      {
+        "tSec": 45.2,
+        "position": {
+          "x": 58.41,
+          "y": 6.41,
+          "z": -105.61
+        },
+        "flightState": "GLIDE",
+        "speed": 8.63,
+        "wingspanMeters": 0.62,
+        "bodyLengthMeters": 0.337,
+        "yawDeg": 10,
+        "bankDeg": -9.9,
+        "pitchDeg": -0.8
+      },
+      {
+        "tSec": 48.2,
+        "position": {
+          "x": 73.36,
+          "y": 9.03,
+          "z": -80.84
+        },
+        "flightState": "GLIDE",
+        "speed": 9.26,
+        "wingspanMeters": 0.62,
+        "bodyLengthMeters": 0.337,
+        "yawDeg": 28.8,
+        "bankDeg": 8.2,
+        "pitchDeg": -2.8
+      },
+      {
+        "tSec": 51.3,
+        "position": {
+          "x": 63.5,
+          "y": 10.77,
+          "z": -60.34
+        },
+        "flightState": "GLIDE",
+        "speed": 8.45,
+        "wingspanMeters": 0.62,
+        "bodyLengthMeters": 0.337,
+        "yawDeg": -62.6,
+        "bankDeg": 5,
+        "pitchDeg": -4.7
+      },
+      {
+        "tSec": 54.3,
+        "position": {
+          "x": 35.33,
+          "y": 13.92,
+          "z": -56.7
+        },
+        "flightState": "FLAP_BURST",
+        "speed": 10.52,
+        "wingspanMeters": 0.62,
+        "bodyLengthMeters": 0.337,
+        "yawDeg": -111.6,
+        "bankDeg": 10.7,
+        "pitchDeg": -4.6
+      },
+      {
+        "tSec": 57.3,
+        "position": {
+          "x": 21.57,
+          "y": 13.41,
+          "z": -78.85
+        },
+        "flightState": "GLIDE",
+        "speed": 8.69,
+        "wingspanMeters": 0.62,
+        "bodyLengthMeters": 0.337,
+        "yawDeg": -176.1,
+        "bankDeg": 4.3,
+        "pitchDeg": 2.5
+      }
+    ]
+  },
+  "errors": []
+}

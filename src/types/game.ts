@@ -90,6 +90,22 @@ export interface GameState {
   vehicleInteraction?: VehicleInteractionState | null;
   activeCharacterId?: string;
   activeCharacterName?: string;
+  dayNight?: {
+    mode: 'REAL_TIME' | 'PREVIEW' | 'ACCELERATED';
+    formattedTime24: string;
+    formattedTime12: string;
+    formattedDate: string;
+    minutesSinceMidnight: number;
+    phase: string;
+    solarElevationDeg: number;
+    solarAzimuthDeg: number;
+    sunriseFormatted: string;
+    sunsetFormatted: string;
+    moonPhaseName: string;
+    moonIlluminationPct: number;
+    moonElevationDeg: number;
+    moonAzimuthDeg: number;
+  };
 }
 
 export interface LandmarkLocation {
@@ -105,9 +121,9 @@ export const CVR_LANDMARKS: LandmarkLocation[] = [
   {
     name: 'Main Entrance Gate & Bus Bay',
     shortLabel: 'Main Gate',
-    x: 25,
-    y: 1.5,
-    z: -168,
+    x: 25.0,
+    y: 1.0,
+    z: -184.0,
     description: 'Sandstone Monument, CVR Medallion, Wrought-Iron Gates & North Bus Bay',
   },
   {

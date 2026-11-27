@@ -1,0 +1,606 @@
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+
+export interface PigeonAnimatedMetrics {
+  normScale: number;
+  glidingWingspanMeters: number;
+  glidingLengthMeters: number;
+  standingBodyLengthMeters: number;
+  flappingSpanRangeMeters: [number, number];
+  triangles: number;
+  meshes: number;
+}
+
+export interface FlyingPigeon {
+  pivot: THREE.Group;
+  model: THREE.Group;
+  mixer: THREE.AnimationMixer;
+  flapAction: THREE.AnimationAction;
+  glideAction: THREE.AnimationAction;
+  position: THREE.Vector3;
+  velocity: THREE.Vector3;
+  heading: THREE.Vector3;
+  splineProgress: number;
+  speed: number;
+  flightState: 'FLAP_BURST' | 'GLIDE';
+  stateTimer: number;
+  currentYaw: number;
+  currentPitch: number;
+  currentBank: number;
+  wingspanMeters: number;
+  bodyLengthMeters: number;
+}
+
+interface ObstacleBox {
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+  minZ: number;
+  maxZ: number;
+}
+
+interface TreeObstacle {
+  x: number;
+  z: number;
+  canopyRadius: number;
+  topY: number;
+}
+
+/**
+ * BirdWildlifeSystem — Upgrade 10A
+ *
+ * Integrates exactly ONE realistic animated Rock Pigeon (Columba livia, animated_bird_pigeon.glb)
+ * calibrated to authentic physical dimensions (60–70 cm wingspan, 30–35 cm body length),
+ * flying a continuous non-circular campus path with realistic flapping/gliding transitions,
+ * aerodynamic banking turns, and active avoidance of buildings, tree canopies, player, and camera.
+ *
+ * All fantasy models (phoenix_bird.glb) and Phase C wildlife remain disabled.
+ */
+export class BirdWildlifeSystem {
+  private scene: THREE.Scene;
+  private loader: GLTFLoader;
+  public isLoaded = false;
+  private time = 0;
+  private pigeonEnabled = true;
+
+  private pigeons: FlyingPigeon[] = [];
+  private patrolCurve: THREE.CatmullRomCurve3;
+  private patrolLength = 1;
+  private animatedMetrics: PigeonAnimatedMetrics | null = null;
+
+  // CPU animation processing cost telemetry (ms)
+  private lastUpdateCpuMs = 0;
+  private totalUpdateCpuMs = 0;
+  private updateSamplesCount = 0;
+
+  // Campus buildings, portal structures & trees to avoid cleanly
+  private readonly buildingObstacles: ObstacleBox[] = [
+    // Main Entrance Gate portal + lettering + pillars (y up to ~8.8m)
+    { minX: 16.5, maxX: 33.5, minY: 0, maxY: 9.2, minZ: -173.4, maxZ: -170.6 },
+    // Sandstone Monument + CVR emblem + Security Cabin + Bus Exit Gate
+    { minX: -8.2, maxX: 16.8, minY: 0, maxY: 7.6, minZ: -175.6, maxZ: -170.2 },
+    // Main Block (West/North/South wings, y up to 17.6m) & East Portico (y up to 9.8m)
+    { minX: -35.0, maxX: 11.0, minY: 0, maxY: 17.8, minZ: -104.0, maxZ: -46.0 },
+    { minX: 10.0, maxX: 19.0, minY: 0, maxY: 10.2, minZ: -86.0, maxZ: -64.0 },
+    // PG Block
+    { minX: -87.0, maxX: -43.0, minY: 0, maxY: 17.4, minZ: -104.0, maxZ: -46.0 },
+    // Central Library
+    { minX: -34.0, maxX: 10.0, minY: 0, maxY: 13.4, minZ: -35.0, maxZ: -11.5 },
+    // CSE Building
+    { minX: 33.0, maxX: 119.0, minY: 0, maxY: 17.4, minZ: -33.0, maxZ: -13.5 },
+    // High-Tension Steel Lattice Tower
+    { minX: 133.0, maxX: 151.0, minY: 0, maxY: 37.5, minZ: -171.0, maxZ: -153.0 },
+  ];
+
+  private readonly treeObstacles: TreeObstacle[] = [
+    // Entrance Gate Backdrop Canopy Trees (taller scale 1.20 - 1.35 -> ~11-12.2m tall)
+    ...([
+      [25.0, -169.5, 1.30], [25.0, -163.0, 1.25], [17.0, -170.0, 1.32],
+      [17.0, -163.5, 1.26], [17.0, -157.0, 1.20], [12.5, -169.5, 1.35],
+      [8.5, -169.0, 1.28], [33.0, -170.0, 1.32], [33.0, -163.5, 1.26],
+      [33.0, -157.0, 1.20], [38.0, -169.5, 1.32],
+    ] as const).map(([x, z, s]) => ({ x, z, canopyRadius: 3.1 * s, topY: 9.1 * s })),
+    // 12M Spine Avenue Divider & Flank Trees
+    ...([
+      [25.0, -166.0, 1.06], [25.0, -158.0, 1.08], [25.0, -150.0, 1.05],
+      [25.0, -128.0, 1.07], [25.0, -120.0, 1.00], [25.0, -110.0, 1.15],
+      [25.0, -100.0, 1.06], [25.0, -94.0, 0.98], [25.0, -88.0, 1.07],
+      [25.0, -82.0, 1.05], [25.0, -76.0, 1.00], [25.0, -70.0, 1.06],
+      [25.0, -64.0, 1.07], [25.0, -58.0, 0.99], [25.0, -52.0, 1.05],
+      [25.0, -46.0, 1.04],
+      [17.0, -152.0, 1.06], [17.0, -144.0, 1.05], [17.0, -136.0, 0.99],
+      [17.0, -128.0, 1.07], [17.0, -120.0, 1.05],
+      [17.4, -100.0, 1.05], [17.4, -92.0, 1.06], [17.4, -84.0, 0.99],
+      [17.4, -76.0, 1.05], [17.4, -68.0, 1.07], [17.4, -60.0, 1.00],
+      [17.4, -52.0, 1.06], [17.4, -46.0, 1.04],
+      [32.6, -154.0, 1.06], [32.6, -148.0, 1.04], [32.6, -128.0, 0.99],
+      [32.6, -120.0, 1.05], [32.6, -100.0, 1.05], [32.6, -92.0, 1.06],
+      [32.6, -84.0, 0.98], [32.6, -76.0, 1.05], [32.6, -68.0, 1.07],
+      [32.6, -60.0, 1.00], [32.6, -52.0, 1.06], [32.6, -46.0, 1.04],
+    ] as const).map(([x, z, s]) => ({ x, z, canopyRadius: 2.9 * s, topY: 9.0 * s })),
+  ];
+
+  // Reusable scratch vectors to eliminate per-frame heap allocations
+  private readonly tmpTarget = new THREE.Vector3();
+  private readonly tmpAhead = new THREE.Vector3();
+  private readonly tmpSteer = new THREE.Vector3();
+  private readonly tmpDesiredDir = new THREE.Vector3();
+  private readonly tmpVec = new THREE.Vector3();
+
+  constructor(scene: THREE.Scene) {
+    this.scene = scene;
+    this.loader = new GLTFLoader();
+
+    // Non-circular figure-8 / multi-zone organic campus patrol curve:
+    // Covers Main Gate Forecourt, open Bus Bay low swoop, CVR Park Lawn,
+    // and climbs gracefully along the tree-lined 12M Spine Avenue above tree canopies.
+    this.patrolCurve = new THREE.CatmullRomCurve3(
+      [
+        new THREE.Vector3(24.0, 11.2, -195.0), // North Highway / Forecourt approach (visible in front of gate)
+        new THREE.Vector3(29.5, 13.4, -173.0), // Crossing above Main Entrance Gate & 3D lettering
+        new THREE.Vector3(44.5, 10.4, -156.0), // Descending over open East forecourt / bus-bay edge
+        new THREE.Vector3(59.0, 7.4, -132.0),  // Low visible glide/flap swoop over open bus bay lawn
+        new THREE.Vector3(54.0, 7.6, -104.0),  // Sweeping into open CVR Park airspace
+        new THREE.Vector3(74.0, 9.2, -74.0),   // Wide graceful turn over CVR Park lawn
+        new THREE.Vector3(46.0, 11.8, -56.0),  // Climbing back toward 12M Spine Avenue
+        new THREE.Vector3(25.0, 13.6, -68.0),  // Above South-Central Spine Avenue (clearing trees)
+        new THREE.Vector3(24.5, 13.8, -106.0), // Cruising North above Inner Roundabout & Avenue trees
+        new THREE.Vector3(23.5, 13.8, -142.0), // Above tree-lined North Entrance Avenue
+        new THREE.Vector3(19.5, 13.5, -176.0), // Passing left of Main Gate above West Forecourt
+      ],
+      true,
+      'catmullrom',
+      0.5
+    );
+    this.patrolLength = this.patrolCurve.getLength();
+
+    this.initWildlife();
+  }
+
+  private async initWildlife(): Promise<void> {
+    this.pigeons = [];
+    await this.loadSingleFlyingPigeon();
+    this.isLoaded = true;
+  }
+
+  /**
+   * Computes exact animated vertex bounds (evaluating SkinnedMesh bone deformation in world space).
+   */
+  private measureAnimatedWorldSize(root: THREE.Object3D): THREE.Vector3 {
+    root.updateMatrixWorld(true);
+    const min = new THREE.Vector3(Infinity, Infinity, Infinity);
+    const max = new THREE.Vector3(-Infinity, -Infinity, -Infinity);
+    const v = new THREE.Vector3();
+
+    root.traverse((obj) => {
+      const mesh = obj as THREE.SkinnedMesh;
+      if (mesh.isMesh && mesh.geometry?.attributes?.position) {
+        if (mesh.isSkinnedMesh && mesh.skeleton) {
+          mesh.skeleton.update();
+        }
+        const posAttr = mesh.geometry.attributes.position;
+        for (let i = 0; i < posAttr.count; i++) {
+          if (mesh.isSkinnedMesh && typeof mesh.getVertexPosition === 'function') {
+            mesh.getVertexPosition(i, v);
+          } else {
+            v.fromBufferAttribute(posAttr, i);
+          }
+          v.applyMatrix4(mesh.matrixWorld);
+          min.min(v);
+          max.max(v);
+        }
+      }
+    });
+
+    return max.sub(min);
+  }
+
+  /**
+   * Upgrade 10A: Loads and configures exactly ONE realistic animated pigeon
+   * measured across all animation poses and scaled to authentic Rock Pigeon proportions:
+   * - Wingspan: 62.0 cm (within 60-70 cm)
+   * - Standing Body Length: ~33.7 cm (within 30-35 cm)
+   */
+  private async loadSingleFlyingPigeon(): Promise<void> {
+    try {
+      const gltf = await new Promise<any>((resolve, reject) => {
+        this.loader.load('/models/birds/animated_bird_pigeon.glb', resolve, undefined, reject);
+      });
+
+      const model = gltf.scene as THREE.Group;
+      const clips = (gltf.animations || []) as THREE.AnimationClip[];
+
+      let meshes = 0;
+      let triangles = 0;
+
+      // Preserve natural pigeon plumage textures & colors (Material.002)
+      model.traverse((node) => {
+        if ((node as THREE.Mesh).isMesh) {
+          meshes++;
+          const mesh = node as THREE.Mesh;
+          const geom = mesh.geometry;
+          triangles += geom.index ? Math.round(geom.index.count / 3) : Math.round(geom.attributes.position.count / 3);
+          mesh.castShadow = true;
+          mesh.receiveShadow = false;
+          mesh.frustumCulled = false;
+          const mat = mesh.material as THREE.MeshStandardMaterial;
+          if (mat) {
+            mat.roughness = 0.78;
+            mat.metalness = 0.0;
+            if (mat.map) {
+              mat.map.colorSpace = THREE.SRGBColorSpace;
+            }
+            mat.needsUpdate = true;
+          }
+        }
+      });
+
+      const mixer = new THREE.AnimationMixer(model);
+      const flapClip = clips.find((c) => c.name === 'BirdRig|Flapping') || clips[0];
+      const glideClip = clips.find((c) => c.name === 'BirdRig|Gliding') || clips[1] || flapClip;
+      const idleClip = clips.find((c) => c.name === 'BirdRig|Standing Idle');
+
+      // Measure actual animated gliding wingspan before scaling (never guess multipliers)
+      const glideMeasureAction = mixer.clipAction(glideClip);
+      glideMeasureAction.play();
+      let maxRawWingspan = 0;
+      for (const frac of [0.0, 0.25, 0.5, 0.75]) {
+        mixer.setTime(glideClip.duration * frac);
+        const s = this.measureAnimatedWorldSize(model);
+        if (s.x > maxRawWingspan) maxRawWingspan = s.x;
+      }
+      mixer.stopAllAction();
+
+      // Target 62.0 cm (0.62 m) wingspan -> yields ~33.7 cm folded standing body length (30-35 cm)
+      const targetWingspan = 0.62;
+      const normScale = targetWingspan / Math.max(maxRawWingspan, 0.001);
+      model.scale.multiplyScalar(normScale);
+
+      // Verify post-scale animated dimensions across Standing Idle, Gliding, and Flapping
+      let standingBodyLength = 0;
+      if (idleClip) {
+        const idleAct = mixer.clipAction(idleClip);
+        idleAct.play();
+        mixer.setTime(idleClip.duration * 0.25);
+        standingBodyLength = this.measureAnimatedWorldSize(model).z;
+        mixer.stopAllAction();
+      }
+
+      const glidePostAct = mixer.clipAction(glideClip);
+      glidePostAct.play();
+      mixer.setTime(glideClip.duration * 0.25);
+      const glidePostSize = this.measureAnimatedWorldSize(model);
+      mixer.stopAllAction();
+
+      const flapPostAct = mixer.clipAction(flapClip);
+      flapPostAct.play();
+      mixer.setTime(0);
+      const flapMinX = this.measureAnimatedWorldSize(model).x;
+      mixer.setTime(flapClip.duration * 0.25);
+      const flapMaxX = this.measureAnimatedWorldSize(model).x;
+      mixer.stopAllAction();
+
+      this.animatedMetrics = {
+        normScale: Number(normScale.toFixed(5)),
+        glidingWingspanMeters: Number(glidePostSize.x.toFixed(4)),
+        glidingLengthMeters: Number(glidePostSize.z.toFixed(4)),
+        standingBodyLengthMeters: Number(standingBodyLength.toFixed(4)),
+        flappingSpanRangeMeters: [Number(flapMinX.toFixed(4)), Number(flapMaxX.toFixed(4))],
+        triangles,
+        meshes,
+      };
+
+      const pivot = new THREE.Group();
+      pivot.name = 'CVR_Pigeon_01';
+      pivot.rotation.order = 'YXZ';
+      pivot.add(model);
+
+      const flapAction = mixer.clipAction(flapClip);
+      flapAction.setLoop(THREE.LoopRepeat, Infinity);
+      flapAction.timeScale = 1.05;
+
+      const glideAction = mixer.clipAction(glideClip);
+      glideAction.setLoop(THREE.LoopRepeat, Infinity);
+      glideAction.timeScale = 1.0;
+
+      // Start actively flying just South-North approaching the Main Entrance Forecourt
+      flapAction.reset().play();
+
+      const startProgress = 0.0;
+      const startPos = this.patrolCurve.getPointAt(startProgress);
+      const startTangent = this.patrolCurve.getTangentAt(startProgress).normalize();
+      const initYaw = Math.atan2(startTangent.x, startTangent.z);
+      const initSpeed = 10.2;
+
+      pivot.position.copy(startPos);
+      pivot.rotation.set(0, initYaw, 0, 'YXZ');
+      pivot.visible = this.pigeonEnabled;
+      this.scene.add(pivot);
+
+      this.pigeons.push({
+        pivot,
+        model,
+        mixer,
+        flapAction,
+        glideAction,
+        position: startPos.clone(),
+        velocity: startTangent.clone().multiplyScalar(initSpeed),
+        heading: startTangent.clone(),
+        splineProgress: startProgress,
+        speed: initSpeed,
+        flightState: 'FLAP_BURST',
+        stateTimer: 2.2,
+        currentYaw: initYaw,
+        currentPitch: 0,
+        currentBank: 0,
+        wingspanMeters: Number(glidePostSize.x.toFixed(3)),
+        bodyLengthMeters: Number(standingBodyLength.toFixed(3)),
+      });
+    } catch (err) {
+      console.warn('Failed to load animated_bird_pigeon.glb:', err);
+    }
+  }
+
+  public setPigeonEnabled(enabled: boolean): void {
+    this.pigeonEnabled = enabled;
+    for (const pg of this.pigeons) {
+      pg.pivot.visible = enabled;
+    }
+  }
+
+  public isPigeonEnabled(): boolean {
+    return this.pigeonEnabled;
+  }
+
+  /**
+   * Main simulation tick called every frame.
+   */
+  public update(
+    deltaTime: number,
+    playerPos?: { x: number; y: number; z: number },
+    cameraPos?: { x: number; y: number; z: number }
+  ): void {
+    if (!this.isLoaded || !this.pigeonEnabled) {
+      this.lastUpdateCpuMs = 0;
+      return;
+    }
+
+    const t0 = performance.now();
+    const dt = Math.min(Math.max(deltaTime, 0.0001), 0.1);
+    this.time += dt;
+
+    this.updatePigeons(dt, playerPos, cameraPos);
+
+    const elapsed = performance.now() - t0;
+    this.lastUpdateCpuMs = elapsed;
+    this.totalUpdateCpuMs += elapsed;
+    this.updateSamplesCount++;
+  }
+
+  /**
+   * Non-circular organic campus steering along the patrol curve with smooth
+   * flapping/gliding state machine, climb/glide speed modulation, turn banking,
+   * and building/tree/player/camera obstacle avoidance.
+   */
+  private updatePigeons(
+    dt: number,
+    playerPos?: { x: number; y: number; z: number },
+    cameraPos?: { x: number; y: number; z: number }
+  ): void {
+    for (let i = 0; i < this.pigeons.length; i++) {
+      const p = this.pigeons[i];
+
+      // Natural flapping <-> gliding cadence
+      p.stateTimer -= dt;
+      if (p.stateTimer <= 0) {
+        if (p.flightState === 'FLAP_BURST') {
+          p.flightState = 'GLIDE';
+          p.stateTimer = 2.8 + Math.random() * 1.4;
+          p.glideAction.reset().play();
+          p.flapAction.crossFadeTo(p.glideAction, 0.38, true);
+        } else {
+          p.flightState = 'FLAP_BURST';
+          p.stateTimer = 1.9 + Math.random() * 1.1;
+          p.flapAction.reset().play();
+          p.glideAction.crossFadeTo(p.flapAction, 0.28, true);
+        }
+      }
+
+      // Advance spline carrot based on current airspeed + subtle organic per-lap variation
+      const stepFraction = (p.speed * dt) / Math.max(this.patrolLength, 1.0);
+      p.splineProgress = (p.splineProgress + stepFraction) % 1.0;
+
+      const lookAheadDist = 9.0;
+      const aheadFrac = (p.splineProgress + lookAheadDist / Math.max(this.patrolLength, 1.0)) % 1.0;
+      this.patrolCurve.getPointAt(aheadFrac, this.tmpAhead);
+
+      // Gentle non-repetitive lateral & vertical thermal drift on target waypoint
+      this.tmpTarget.copy(this.tmpAhead);
+      this.tmpTarget.x += Math.sin(this.time * 0.29) * 2.4 + Math.cos(this.time * 0.13) * 1.3;
+      this.tmpTarget.z += Math.cos(this.time * 0.23) * 1.8;
+      this.tmpTarget.y +=
+        Math.sin(this.time * 0.37) * 0.85 +
+        (p.flightState === 'FLAP_BURST' ? 0.65 : -0.45);
+
+      this.tmpDesiredDir.subVectors(this.tmpTarget, p.position);
+      if (this.tmpDesiredDir.lengthSq() > 1e-5) {
+        this.tmpDesiredDir.normalize();
+      } else {
+        this.tmpDesiredDir.copy(p.heading);
+      }
+
+      // Apply soft obstacle avoidance (buildings, tree canopies, player, camera)
+      this.tmpSteer.set(0, 0, 0);
+
+      // 1. Trees: keep lateral + vertical clearance outside leaf canopies
+      for (let t = 0; t < this.treeObstacles.length; t++) {
+        const tree = this.treeObstacles[t];
+        const safeTop = tree.topY + 1.35;
+        if (p.position.y < safeTop) {
+          const dx = p.position.x - tree.x;
+          const dz = p.position.z - tree.z;
+          const distSq = dx * dx + dz * dz;
+          const avoidR = tree.canopyRadius + 1.6;
+          if (distSq < avoidR * avoidR && distSq > 1e-4) {
+            const d = Math.sqrt(distSq);
+            const strength = (avoidR - d) / avoidR;
+            this.tmpSteer.x += (dx / d) * strength * 1.6;
+            this.tmpSteer.z += (dz / d) * strength * 1.6;
+            this.tmpSteer.y += strength * 1.2;
+          }
+        }
+      }
+
+      // 2. Buildings & Monument / Portal Structures
+      const bMargin = 2.6;
+      for (let b = 0; b < this.buildingObstacles.length; b++) {
+        const box = this.buildingObstacles[b];
+        if (
+          p.position.x > box.minX - bMargin &&
+          p.position.x < box.maxX + bMargin &&
+          p.position.z > box.minZ - bMargin &&
+          p.position.z < box.maxZ + bMargin &&
+          p.position.y < box.maxY + 2.0
+        ) {
+          const cx = (box.minX + box.maxX) * 0.5;
+          const cz = (box.minZ + box.maxZ) * 0.5;
+          this.tmpVec.set(p.position.x - cx, 0, p.position.z - cz);
+          if (this.tmpVec.lengthSq() > 1e-4) this.tmpVec.normalize();
+          else this.tmpVec.set(0, 0, 1);
+          this.tmpSteer.x += this.tmpVec.x * 1.8;
+          this.tmpSteer.z += this.tmpVec.z * 1.8;
+          this.tmpSteer.y += 1.6;
+        }
+      }
+
+      // 3. Player & Active Camera exclusion (never fly through Remy, Aarav, or camera)
+      const avoidActor = (pos: { x: number; y: number; z: number } | undefined, radius: number) => {
+        if (!pos) return;
+        const dx = p.position.x - pos.x;
+        const dy = p.position.y - (pos.y + 0.9);
+        const dz = p.position.z - pos.z;
+        const distSq = dx * dx + dy * dy + dz * dz;
+        if (distSq < radius * radius && distSq > 1e-4) {
+          const d = Math.sqrt(distSq);
+          const s = (radius - d) / radius;
+          this.tmpSteer.x += (dx / d) * s * 2.2;
+          this.tmpSteer.y += (Math.max(0.35, dy / d)) * s * 2.4;
+          this.tmpSteer.z += (dz / d) * s * 2.2;
+        }
+      };
+      avoidActor(playerPos, 3.6);
+      avoidActor(cameraPos, 3.4);
+
+      // 4. Hard floor safety (never dip near vehicles/head height)
+      if (p.position.y < 5.6) {
+        this.tmpSteer.y += (5.6 - p.position.y) * 0.8;
+      }
+
+      this.tmpDesiredDir.add(this.tmpSteer).normalize();
+
+      // Smooth frame-rate-independent heading interpolation (finite aerodynamic turn rate)
+      const prevYaw = Math.atan2(p.heading.x, p.heading.z);
+      const steerLerp = Math.min(1.0, 2.2 * dt);
+      p.heading.lerp(this.tmpDesiredDir, steerLerp).normalize();
+
+      // Realistic Pigeon Cruise Speed (~8.5 m/s glide -> ~10.8 m/s flap burst), modulated by climb/dive
+      const baseTargetSpeed = p.flightState === 'FLAP_BURST' ? 10.7 : 8.6;
+      const climbDrag = p.heading.y * 1.8;
+      const targetSpeed = THREE.MathUtils.clamp(baseTargetSpeed - climbDrag, 7.6, 12.2);
+      p.speed = THREE.MathUtils.lerp(p.speed, targetSpeed, Math.min(1.0, 2.0 * dt));
+
+      // Advance position
+      p.velocity.copy(p.heading).multiplyScalar(p.speed);
+      p.position.addScaledVector(p.velocity, dt);
+      if (p.position.y < 5.0) p.position.y = 5.0;
+
+      // Orient pigeon cleanly along velocity with smooth aerodynamic roll banking
+      const newYaw = Math.atan2(p.heading.x, p.heading.z);
+      let yawDelta = newYaw - prevYaw;
+      while (yawDelta > Math.PI) yawDelta -= Math.PI * 2;
+      while (yawDelta < -Math.PI) yawDelta += Math.PI * 2;
+
+      const yawRate = yawDelta / Math.max(dt, 0.0005);
+      const desiredBank = THREE.MathUtils.clamp(-yawRate * 0.42, -0.48, 0.48);
+      p.currentBank = THREE.MathUtils.lerp(p.currentBank, desiredBank, Math.min(1.0, 5.5 * dt));
+
+      const desiredPitch = -Math.asin(THREE.MathUtils.clamp(p.heading.y, -0.42, 0.42));
+      p.currentPitch = THREE.MathUtils.lerp(p.currentPitch, desiredPitch, Math.min(1.0, 6.0 * dt));
+      p.currentYaw = newYaw;
+
+      p.pivot.position.copy(p.position);
+      p.pivot.rotation.set(p.currentPitch, p.currentYaw, p.currentBank, 'YXZ');
+
+      p.mixer.update(dt);
+    }
+  }
+
+  public getWildlifeCounts(): { pigeons: number; raptors: number; perched: number; sparrows: number } {
+    return {
+      pigeons: this.pigeonEnabled ? this.pigeons.length : 0,
+      raptors: 0,
+      perched: 0,
+      sparrows: 0,
+    };
+  }
+
+  public getAnimatedMetrics(): PigeonAnimatedMetrics | null {
+    return this.animatedMetrics;
+  }
+
+  public getAnimationCpuStats(): { lastMs: number; avgMs: number; samples: number } {
+    return {
+      lastMs: Number(this.lastUpdateCpuMs.toFixed(4)),
+      avgMs: this.updateSamplesCount > 0 ? Number((this.totalUpdateCpuMs / this.updateSamplesCount).toFixed(4)) : 0,
+      samples: this.updateSamplesCount,
+    };
+  }
+
+  public getPrimaryPigeonState(): {
+    position: { x: number; y: number; z: number };
+    flightState: string;
+    speed: number;
+    wingspanMeters: number;
+    bodyLengthMeters: number;
+    yawDeg: number;
+    bankDeg: number;
+    pitchDeg: number;
+  } | null {
+    if (this.pigeons.length === 0) return null;
+    const p = this.pigeons[0];
+    return {
+      position: {
+        x: Number(p.position.x.toFixed(2)),
+        y: Number(p.position.y.toFixed(2)),
+        z: Number(p.position.z.toFixed(2)),
+      },
+      flightState: p.flightState,
+      speed: Number(p.speed.toFixed(2)),
+      wingspanMeters: p.wingspanMeters,
+      bodyLengthMeters: p.bodyLengthMeters,
+      yawDeg: Number(THREE.MathUtils.radToDeg(p.currentYaw).toFixed(1)),
+      bankDeg: Number(THREE.MathUtils.radToDeg(p.currentBank).toFixed(1)),
+      pitchDeg: Number(THREE.MathUtils.radToDeg(p.currentPitch).toFixed(1)),
+    };
+  }
+
+  public dispose(): void {
+    for (const pg of this.pigeons) {
+      if (pg.mixer) pg.mixer.stopAllAction();
+      pg.pivot.traverse((node) => {
+        if ((node as THREE.Mesh).isMesh) {
+          const mesh = node as THREE.Mesh;
+          mesh.geometry?.dispose();
+          const mat = mesh.material as THREE.MeshStandardMaterial;
+          if (mat) {
+            mat.map?.dispose();
+            mat.dispose();
+          }
+        }
+      });
+      this.scene.remove(pg.pivot);
+    }
+    this.pigeons = [];
+  }
+}

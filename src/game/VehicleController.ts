@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { PhysicsWorld } from './PhysicsWorld';
 
 export interface VehicleData {
@@ -46,8 +47,8 @@ export class VehicleController {
   }
 
   private initVehicles(): void {
-    // 1. CVR College Bus (North Bus Bay: x: 68, z: -163, facing South)
-    this.createCVRBus(68, 1.7, -163, 0);
+    // 1. CVR College Bus (North Bus Bay Column 1, Row 1: x: 50.25, z: -168.0, facing West)
+    this.createCVRBus(50.25, 1.62, -168.0, Math.PI / 2);
 
     // 2. Campus Car (12M Spine Avenue Parking: x: 29, z: -120, facing South)
     this.createCampusCar(29, 0.8, -120, 0);
@@ -59,22 +60,23 @@ export class VehicleController {
   // --- CVR COLLEGE BUS BUILDER ---
   private createCVRBus(x: number, y: number, z: number, initialYaw: number): void {
     const group = new THREE.Group();
-    group.name = 'CVR_College_Bus';
+    group.name = 'CVR_Bus_01';
+    group.userData = { isCollegeBus: true, busNumber: '01', busIndex: 1 };
 
     const width = 2.5;
     const height = 3.1;
     const depth = 10.5;
 
-    // Body Materials
+    // Body Materials (Realistic automotive paint & trim)
     const yellowMat = new THREE.MeshStandardMaterial({
-      color: 0xfacc15, // Golden yellow CVR bus livery
-      roughness: 0.35,
-      metalness: 0.2,
+      color: 0xe8ad18, // Grounded golden-amber CVR coach enamel
+      roughness: 0.34,
+      metalness: 0.08,
     });
     const maroonMat = new THREE.MeshStandardMaterial({
-      color: 0x881337, // Maroon lower stripe
-      roughness: 0.4,
-      metalness: 0.15,
+      color: 0x70112e, // Rich maroon lower skirt
+      roughness: 0.42,
+      metalness: 0.06,
     });
     const glassMat = new THREE.MeshPhysicalMaterial({
       color: 0x1e293b,
@@ -128,9 +130,9 @@ export class VehicleController {
     cabinMesh.receiveShadow = true;
     group.add(cabinMesh);
 
-    // 3. Curved White Roof
+    // 3. Curved White Roof (Calibrated semi-gloss painted fiberglass, avoids pure-white blowout)
     const roofGeo = new THREE.BoxGeometry(width - 0.1, 0.35, depth - 0.2);
-    const roofMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.3 });
+    const roofMat = new THREE.MeshStandardMaterial({ color: 0xd4dae2, roughness: 0.48, metalness: 0.02 });
     const roofMesh = new THREE.Mesh(roofGeo, roofMat);
     roofMesh.position.set(0, 1.45, 0);
     roofMesh.castShadow = true;
@@ -256,7 +258,12 @@ export class VehicleController {
     this.scene.add(group);
 
     // Rapier Physics Body
-    const { body, collider } = this.physics.createDynamicBox(x, y, z, width, height, depth, 4500);
+    // For a vehicle oriented along X (yaw = Math.PI / 2 or -Math.PI / 2), the world physics box
+    // must align with world orientation: X dimension = 10.5m, Z dimension = 2.8m
+    const isRotated90 = Math.abs(Math.abs(initialYaw) - Math.PI / 2) < 0.1;
+    const physWidth = isRotated90 ? depth : width;
+    const physDepth = isRotated90 ? width : depth;
+    const { body, collider } = this.physics.createDynamicBox(x, y, z, physWidth, height, physDepth, 4500);
 
     const vehicleData: VehicleData = {
       id: 'cvr-bus',
@@ -323,32 +330,6 @@ export class VehicleController {
       '/models/car.glb',
       (gltf) => {
         const carModel = gltf.scene;
-        // Retint materials for campus look
-        carModel.traverse((child) => {
-          if (child instanceof THREE.Mesh) {
-            child.castShadow = true;
-            child.receiveShadow = true;
-            child.frustumCulled = false;
-
-            const mat = child.material as THREE.MeshStandardMaterial;
-            if (mat) {
-              if (mat.name === 'Body_Color' || mat.name === 'Ferrari_Yellow') {
-                // Sleek Emerald / Mint Green campus EV coat
-                child.material = new THREE.MeshStandardMaterial({
-                  color: 0x10b981,
-                  roughness: 0.15,
-                  metalness: 0.7,
-                });
-              } else if (mat.name === 'Leather_red') {
-                child.material = new THREE.MeshStandardMaterial({
-                  color: 0x1e293b,
-                  roughness: 0.6,
-                });
-              }
-            }
-          }
-        });
-
         // Compute model bounds to align and scale to exact 1.45m height and 4.1m length
         const box = new THREE.Box3().setFromObject(carModel);
         const size = box.getSize(new THREE.Vector3());
@@ -361,8 +342,76 @@ export class VehicleController {
         carModel.position.set(-center.x, -scaledBox.min.y - height / 2 + 0.05, -center.z);
         // Face forward (-Z)
         carModel.rotation.y = Math.PI;
+        carModel.updateMatrixWorld(true);
 
-        group.add(carModel);
+        // Merge static sub-meshes by (material, isExterior) to cut 51 draw calls/geometries down to ~10
+        const bodyCoatMat = new THREE.MeshStandardMaterial({
+          color: 0x10b981,
+          roughness: 0.15,
+          metalness: 0.7,
+        });
+        const leatherMat = new THREE.MeshStandardMaterial({
+          color: 0x1e293b,
+          roughness: 0.6,
+        });
+        this.disposables.push(bodyCoatMat, leatherMat);
+
+        const buckets = new Map<string, { mat: THREE.Material; castShadow: boolean; geos: THREE.BufferGeometry[] }>();
+        carModel.traverse((child) => {
+          if (child instanceof THREE.Mesh && child.geometry) {
+            const isExterior = /body|chassis|wheel|tire|rim|roof|door/i.test(child.name);
+            let mat = child.material as THREE.MeshStandardMaterial;
+            if (mat) {
+              if (mat.name === 'Body_Color' || mat.name === 'Ferrari_Yellow') {
+                mat = bodyCoatMat;
+              } else if (mat.name === 'Leather_red') {
+                mat = leatherMat;
+              }
+            }
+            const g = child.geometry.clone();
+            g.applyMatrix4(child.matrixWorld);
+            for (const attr of Object.keys(g.attributes)) {
+              if (attr !== 'position' && attr !== 'normal' && attr !== 'uv') {
+                g.deleteAttribute(attr);
+              }
+            }
+            const key = `${mat.uuid}_${isExterior ? 1 : 0}`;
+            let b = buckets.get(key);
+            if (!b) {
+              b = { mat, castShadow: isExterior, geos: [] };
+              buckets.set(key, b);
+            }
+            b.geos.push(g);
+            child.geometry.dispose();
+          }
+        });
+
+        const mergedCarGroup = new THREE.Group();
+        mergedCarGroup.name = 'Campus_Car_Merged';
+        for (const b of buckets.values()) {
+          const hasIdx = b.geos.some((g) => g.index !== null);
+          const hasNonIdx = b.geos.some((g) => g.index === null);
+          const prep = b.geos.map((g) => {
+            if (hasIdx && hasNonIdx && g.index !== null) {
+              const ni = g.toNonIndexed();
+              g.dispose();
+              return ni;
+            }
+            return g;
+          });
+          const merged = prep.length === 1 ? prep[0] : mergeGeometries(prep, false);
+          if (prep.length > 1) prep.forEach((g) => g.dispose());
+          if (merged) {
+            merged.computeBoundingSphere();
+            const mesh = new THREE.Mesh(merged, b.mat);
+            mesh.castShadow = b.castShadow;
+            mesh.receiveShadow = b.castShadow;
+            mesh.frustumCulled = true;
+            mergedCarGroup.add(mesh);
+            this.disposables.push(merged);
+          }
+        }
+        group.add(mergedCarGroup);
       },
       undefined,
       (err) => {
@@ -434,7 +483,8 @@ export class VehicleController {
           if (child instanceof THREE.Mesh) {
             child.castShadow = true;
             child.receiveShadow = true;
-            child.frustumCulled = false;
+            child.frustumCulled = true;
+            child.geometry?.computeBoundingSphere();
 
             const name = child.name.toLowerCase();
             if (name.includes('body') || name.includes('frame') || (!name.includes('wheel') && !name.includes('tire') && !name.includes('seat'))) {

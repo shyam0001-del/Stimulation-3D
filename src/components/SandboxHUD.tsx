@@ -17,6 +17,10 @@ import {
   Zap,
   User,
   Sparkles,
+  Clock,
+  Sun,
+  Moon,
+  FastForward,
 } from 'lucide-react';
 
 interface SandboxHUDProps {
@@ -25,6 +29,9 @@ interface SandboxHUDProps {
   onRequestPointerLock: () => void;
   onTeleport: (x: number, y: number, z: number) => void;
   onOpenCharacterSelect?: () => void;
+  onSetRealTime?: () => void;
+  onPreviewMinutes?: (totalMinutes: number) => void;
+  onToggleAccelerated?: () => void;
 }
 
 export const SandboxHUD: React.FC<SandboxHUDProps> = ({
@@ -33,6 +40,9 @@ export const SandboxHUD: React.FC<SandboxHUDProps> = ({
   onRequestPointerLock,
   onTeleport,
   onOpenCharacterSelect,
+  onSetRealTime,
+  onPreviewMinutes,
+  onToggleAccelerated,
 }) => {
   const minimapCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [isTeleportOpen, setIsTeleportOpen] = useState(false);
@@ -100,41 +110,137 @@ export const SandboxHUD: React.FC<SandboxHUDProps> = ({
       worldToMapY(119) - worldToMapY(111)
     );
 
-    // 3. North Bus Bay (Earthen red soil)
-    ctx.fillStyle = '#5c2d1b';
+    // 3. 60-Bus Bay on LEFT (x: 34 to 150, z: -171 to -115, light sand soil #d2b79b)
+    ctx.fillStyle = '#d2b79b';
     ctx.fillRect(
-      worldToMapX(50),
-      worldToMapY(-172),
-      worldToMapX(135) - worldToMapX(50),
-      worldToMapY(-154) - worldToMapY(-172)
+      worldToMapX(34),
+      worldToMapY(-171),
+      worldToMapX(150) - worldToMapX(34),
+      worldToMapY(-115) - worldToMapY(-171)
+    );
+    ctx.strokeStyle = '#eab308';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(
+      worldToMapX(34),
+      worldToMapY(-171),
+      worldToMapX(150) - worldToMapX(34),
+      worldToMapY(-115) - worldToMapY(-171)
     );
 
-    // 4. Landscape Garden (Rich green)
+    // Bus indicators in 6 columns x 10 rows (6 North + 4 South)
+    ctx.fillStyle = '#ca8a04';
+    const hudCols = [50.25, 62.75, 86.25, 98.75, 122.25, 134.75];
+    const hudSlots = [-168.0, -164.2, -160.4, -156.6, -152.8, -149.0, -129.0, -125.6, -122.2, -118.8];
+    hudCols.forEach(cx => {
+      hudSlots.forEach(sz => {
+        ctx.fillRect(worldToMapX(cx - 5.25), worldToMapY(sz - 1.25), 6, 3);
+      });
+    });
+
+    // 4. CVR Park (Lush green park opposite Main Block: x: 34 to 125, z: -104 to -40)
     ctx.fillStyle = '#15803d';
     ctx.fillRect(
       worldToMapX(34),
-      worldToMapY(-130),
-      worldToMapX(124) - worldToMapX(34),
-      worldToMapY(-45) - worldToMapY(-130)
+      worldToMapY(-104),
+      worldToMapX(125) - worldToMapX(34),
+      worldToMapY(-40) - worldToMapY(-104)
     );
-    // HT Tower indicator in garden
+    ctx.strokeStyle = '#22c55e';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(
+      worldToMapX(34),
+      worldToMapY(-104),
+      worldToMapX(125) - worldToMapX(34),
+      worldToMapY(-40) - worldToMapY(-104)
+    );
+    // HT Tower indicator in CVR Park
     ctx.fillStyle = '#f59e0b';
     ctx.beginPath();
-    ctx.arc(worldToMapX(142), worldToMapY(-142), 3, 0, Math.PI * 2);
+    ctx.arc(worldToMapX(142), worldToMapY(-162), 3, 0, Math.PI * 2);
     ctx.fill();
 
     // 5. Road Network (Dark slate asphalt #334155)
     ctx.fillStyle = '#334155';
 
-    // North Approach Highway (z: -182 to -168, width 14m)
-    ctx.fillRect(minX, worldToMapY(-182), maxX - minX, worldToMapY(-168) - worldToMapY(-182));
+    // North Approach Highway (z: -193 to -179, width 14m)
+    ctx.fillRect(minX, worldToMapY(-193), maxX - minX, worldToMapY(-179) - worldToMapY(-193));
 
-    // 12M Spine Avenue (x: 19 to 31, z: -160 to 115, width 12m)
+    // Entrance Avenue Corridor (x: 18.8 to 31.2, z: -172 to -115)
     ctx.fillRect(
-      worldToMapX(19),
-      worldToMapY(-160),
-      worldToMapX(31) - worldToMapX(19),
-      worldToMapY(115) - worldToMapY(-160)
+      worldToMapX(18.8),
+      worldToMapY(-172),
+      worldToMapX(31.2) - worldToMapX(18.8),
+      worldToMapY(-115) - worldToMapY(-172)
+    );
+
+    // First Left Connection into Bus Bay (z = -138)
+    ctx.fillRect(
+      worldToMapX(28.5),
+      worldToMapY(-144),
+      worldToMapX(46) - worldToMapX(28.5),
+      worldToMapY(-132) - worldToMapY(-144)
+    );
+
+    // Second Left Connection into Bus Bay from Inner Junction (z = -110)
+    ctx.fillRect(
+      worldToMapX(31.2),
+      worldToMapY(-115),
+      worldToMapX(150) - worldToMapX(31.2),
+      worldToMapY(-105) - worldToMapY(-115)
+    );
+
+    // Round Inner Junction at z = -110
+    ctx.fillStyle = '#64748b';
+    ctx.beginPath();
+    ctx.arc(worldToMapX(25), worldToMapY(-110), 6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#eab308';
+    ctx.beginPath();
+    ctx.arc(worldToMapX(25), worldToMapY(-110), 2.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // PG Block Road turning RIGHT from junction (z: -114.5 to -105.5, x: 18.8 to -85)
+    ctx.fillStyle = '#334155';
+    ctx.fillRect(
+      worldToMapX(-85),
+      worldToMapY(-114.5),
+      worldToMapX(18.8) - worldToMapX(-85),
+      worldToMapY(-105.5) - worldToMapY(-114.5)
+    );
+
+    // Straight Pedestrian Walkway from Small Gate (x: 8.0, z: -172 to -110, dedicated pink/magenta line)
+    ctx.fillStyle = '#f472b6';
+    ctx.fillRect(
+      worldToMapX(6.8),
+      worldToMapY(-172),
+      worldToMapX(9.2) - worldToMapX(6.8),
+      worldToMapY(-110) - worldToMapY(-172)
+    );
+
+    // Dedicated Bus Exit Gate & Driveway (x: -3.75, z: -172 to -110)
+    ctx.fillStyle = '#475569';
+    ctx.fillRect(
+      worldToMapX(-7.5),
+      worldToMapY(-172),
+      worldToMapX(0.0) - worldToMapX(-7.5),
+      worldToMapY(-110) - worldToMapY(-172)
+    );
+
+    // Continuing Parallel Roads past junction (z: -105 to -40, between Main Block & CVR Park)
+    ctx.fillStyle = '#334155';
+    ctx.fillRect(
+      worldToMapX(18.8),
+      worldToMapY(-105),
+      worldToMapX(31.2) - worldToMapX(18.8),
+      worldToMapY(-40) - worldToMapY(-105)
+    );
+
+    // South Campus Core Avenue (z: -40 to 115)
+    ctx.fillRect(
+      worldToMapX(18.8),
+      worldToMapY(-40),
+      worldToMapX(31.2) - worldToMapX(18.8),
+      worldToMapY(115) - worldToMapY(-40)
     );
 
     // North Loop Road (z: -134.5 to -125.5, x: -86 to 140, width 9m)
@@ -220,7 +326,7 @@ export const SandboxHUD: React.FC<SandboxHUDProps> = ({
 
     // 8. Building Footprints
     const buildings = [
-      { name: 'GATE', x: 25, z: -160, w: 22, d: 6, color: '#f59e0b' },
+      { name: 'GATE', x: 25, z: -172, w: 22, d: 6, color: '#f59e0b' },
       { name: 'MAIN', x: -12, z: -75, w: 44, d: 56, color: '#38bdf8' },
       { name: 'PORTICO', x: 14, z: -75, w: 8, d: 20, color: '#0284c7' },
       { name: 'PG', x: -65, z: -75, w: 42, d: 56, color: '#94a3b8' },
@@ -410,6 +516,156 @@ export const SandboxHUD: React.FC<SandboxHUDProps> = ({
             )}
             </div>
           </div>
+
+          {/* Compact Hyderabad IST Time & Day/Night Preview Controls */}
+          {state.dayNight && (
+            <div
+              className="pointer-events-auto w-full max-w-[360px] px-3 py-2 rounded-xl bg-slate-900/90 border border-white/15 shadow-lg backdrop-blur-md flex flex-col gap-1.5"
+              aria-label="Hyderabad Time and Day Night Controls"
+              onMouseDown={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between gap-2 text-[11px]">
+                <div className="flex items-center gap-1.5">
+                  {state.dayNight.solarElevationDeg >= 0 ? (
+                    <Sun className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  ) : (
+                    <Moon className="w-3.5 h-3.5 text-sky-300 shrink-0" />
+                  )}
+                  <span className="font-mono font-bold text-white">
+                    {state.dayNight.formattedTime24.slice(0, 5)} IST
+                  </span>
+                  <span className="text-slate-400">·</span>
+                  <span className="text-slate-200 font-medium truncate">
+                    {state.dayNight.phase}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className="text-[10px] text-slate-400 font-mono hidden sm:inline"
+                    title={`${state.dayNight.moonPhaseName} (${state.dayNight.moonIlluminationPct}% lit) • Sunrise ${state.dayNight.sunriseFormatted} • Sunset ${state.dayNight.sunsetFormatted}`}
+                  >
+                    ☾ {state.dayNight.moonIlluminationPct}%
+                  </span>
+                  <span
+                    data-daynight-mode={state.dayNight.mode}
+                    className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-bold tracking-wider border ${
+                      state.dayNight.mode === 'REAL_TIME'
+                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/35'
+                        : state.dayNight.mode === 'ACCELERATED'
+                        ? 'bg-sky-500/20 text-sky-300 border-sky-500/35'
+                        : 'bg-amber-500/20 text-amber-300 border-amber-500/35'
+                    }`}
+                  >
+                    {state.dayNight.mode === 'REAL_TIME'
+                      ? 'REAL TIME'
+                      : state.dayNight.mode === 'ACCELERATED'
+                      ? 'ACCEL 60×'
+                      : 'PREVIEW'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Time Scrubbing Slider (00:00 - 23:59) */}
+              <div className="flex items-center gap-2">
+                <span className="text-[9px] font-mono text-slate-400">00:00</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={1439}
+                  step={1}
+                  aria-label="Time of day slider"
+                  value={Math.floor(state.dayNight.minutesSinceMidnight) % 1440}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onChange={(e) => {
+                    onPreviewMinutes?.(Number(e.target.value));
+                  }}
+                  onMouseUp={(e) => e.currentTarget.blur()}
+                  onTouchEnd={(e) => e.currentTarget.blur()}
+                  className="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-amber-400"
+                />
+                <span className="text-[9px] font-mono text-slate-400">23:59</span>
+              </div>
+
+              {/* Mode Selection & Reset to Real Time */}
+              <div className="flex items-center justify-between gap-1.5">
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    data-time-action="realtime"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSetRealTime?.();
+                      e.currentTarget.blur();
+                    }}
+                    className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold border transition-all cursor-pointer ${
+                      state.dayNight.mode === 'REAL_TIME'
+                        ? 'bg-emerald-500/20 text-emerald-200 border-emerald-400/50'
+                        : 'bg-slate-800/80 text-slate-300 hover:text-white border-white/10'
+                    }`}
+                  >
+                    <Clock className="w-2.5 h-2.5" />
+                    <span>Real Time</span>
+                  </button>
+                  <button
+                    type="button"
+                    data-time-action="preview"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onPreviewMinutes?.(Math.floor(state.dayNight!.minutesSinceMidnight));
+                      e.currentTarget.blur();
+                    }}
+                    className={`px-2 py-0.5 rounded-md text-[10px] font-semibold border transition-all cursor-pointer ${
+                      state.dayNight.mode === 'PREVIEW'
+                        ? 'bg-amber-500/20 text-amber-200 border-amber-400/50'
+                        : 'bg-slate-800/80 text-slate-300 hover:text-white border-white/10'
+                    }`}
+                  >
+                    Preview
+                  </button>
+                  <button
+                    type="button"
+                    data-time-action="accelerated"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleAccelerated?.();
+                      e.currentTarget.blur();
+                    }}
+                    title="Complete 24 hours in 24 minutes (60x speed)"
+                    className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold border transition-all cursor-pointer ${
+                      state.dayNight.mode === 'ACCELERATED'
+                        ? 'bg-sky-500/20 text-sky-200 border-sky-400/50'
+                        : 'bg-slate-800/80 text-slate-300 hover:text-white border-white/10'
+                    }`}
+                  >
+                    <FastForward className="w-2.5 h-2.5" />
+                    <span>60× Cycle</span>
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  data-time-action="reset-realtime"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSetRealTime?.();
+                    e.currentTarget.blur();
+                  }}
+                  title="Reset back to live Hyderabad IST time"
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold border transition-all cursor-pointer ${
+                    state.dayNight.mode !== 'REAL_TIME'
+                      ? 'bg-amber-500/20 text-amber-200 hover:bg-amber-500/30 border-amber-400/40'
+                      : 'bg-slate-800/50 text-slate-400 hover:text-slate-200 border-white/5'
+                  }`}
+                >
+                  <RotateCcw className="w-2.5 h-2.5" />
+                  <span>Reset IST</span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Right: Live 2D Campus Minimap & Telemetry */}

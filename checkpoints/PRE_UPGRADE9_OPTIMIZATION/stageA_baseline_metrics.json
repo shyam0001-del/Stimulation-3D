@@ -1,0 +1,32 @@
+{
+  "benchmarkDurationSeconds": 60,
+  "totalFramesSampled": 3600,
+  "avgFps": 124.9,
+  "low1PercentFps": 51.8,
+  "low01PercentFps": 31.9,
+  "minFps": 15,
+  "maxFps": 769.2,
+  "avgFrameTimeMs": 8.01,
+  "p99FrameTimeMs": 19.3,
+  "p999FrameTimeMs": 31.3,
+  "maxFrameTimeMs": 66.7,
+  "minFrameTimeMs": 1.3,
+  "avgDrawCalls": 2029,
+  "minDrawCalls": 408,
+  "maxDrawCalls": 3316,
+  "avgTriangles": 1357466,
+  "minTriangles": 935748,
+  "maxTriangles": 1571671,
+  "memory": {
+    "geometries": 962,
+    "textures": 197
+  },
+  "frameTimeDistribution": {
+    "framesOver16ms": 149,
+    "framesOver16msPct": 4.1,
+    "framesOver33ms": 3,
+    "framesOver33msPct": 0.1,
+    "framesOver50ms": 1,
+    "framesOver50msPct": 0
+  }
+}

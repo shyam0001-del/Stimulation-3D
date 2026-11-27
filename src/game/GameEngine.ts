@@ -1,25 +1,36 @@
 import * as THREE from 'three';
-import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import { Sky } from 'three/examples/jsm/objects/Sky.js';
+import { LivingSky } from './LivingSky';
+import { BirdWildlifeSystem } from './BirdWildlifeSystem';
 import { PhysicsWorld } from './PhysicsWorld';
 import { CVRCampusMap } from './CVRCampusMap';
 import { PlayerController } from './PlayerController';
 import { VehicleController } from './VehicleController';
 import { ThirdPersonCamera } from './ThirdPersonCamera';
+import { DayNightCycle, AtmosphereFrame, IBLStopDescriptor } from './DayNightCycle';
+import { EnvironmentalWind } from './EnvironmentalWind';
 import { GameState } from '../types/game';
 
 export class GameEngine {
   private canvas: HTMLCanvasElement;
   private renderer!: THREE.WebGLRenderer;
-  private scene!: THREE.Scene;
+  public scene!: THREE.Scene;
   private dirLight!: THREE.DirectionalLight;
-  private sky!: Sky;
+  private hemiLight!: THREE.HemisphereLight;
+  private ambientLight!: THREE.AmbientLight;
+  private sunVec = new THREE.Vector3();
+  public livingSky!: LivingSky;
+  public dayNightCycle!: DayNightCycle;
+  public wind!: EnvironmentalWind;
+  private readonly fogColor = new THREE.Color(0xc5d7e8);
+  private iblStopTextures: THREE.Texture[] = [];
+  private activeIblStopIndex = -1;
 
   private physics!: PhysicsWorld;
   private campus!: CVRCampusMap;
   public player!: PlayerController;
   public vehicles!: VehicleController;
   public cameraController!: ThirdPersonCamera;
+  public birds!: BirdWildlifeSystem;
 
   // Fixed Timestep Loop Accumulator (60Hz physics for Apple Silicon & desktop)
   private readonly fixedTimeStep = 1 / 60;
@@ -55,12 +66,12 @@ export class GameEngine {
     }
     this.physics = physicsWorld;
 
-    // 2. Initialize Three.js Scene & Fog
+    // 2. Initialize Three.js Scene & Calibrated Atmospheric Fog
     this.scene = new THREE.Scene();
-    const fogColor = new THREE.Color(0xcfdde8);
-    this.scene.fog = new THREE.FogExp2(fogColor, 0.0055);
+    (window as any).THREE = THREE;
+    this.scene.fog = new THREE.FogExp2(this.fogColor.clone(), 0.0019);
 
-    // 3. Configure WebGL2 High-Performance Renderer
+    // 3. Configure WebGL2 High-Performance Renderer (Calibrated Filmic Exposure)
     this.renderer = new THREE.WebGLRenderer({
       canvas: this.canvas,
       antialias: true,
@@ -68,24 +79,41 @@ export class GameEngine {
       stencil: false,
     });
     this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFShadowMap;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.1;
+    this.renderer.toneMappingExposure = 0.98;
 
-    // 4. Image-Based Lighting (IBL) via PMREMGenerator & RoomEnvironment
+    // 4. Real-Time Hyderabad Day/Night Cycle & Pre-baked Outdoor IBL Stops (0ms runtime transition cost)
+    this.dayNightCycle = new DayNightCycle();
+    const initialFrame = this.dayNightCycle.getCurrentFrame();
+
     const pmremGenerator = new THREE.PMREMGenerator(this.renderer);
     pmremGenerator.compileEquirectangularShader();
-    const envTexture = pmremGenerator.fromScene(new RoomEnvironment(), 0.04).texture;
-    this.scene.environment = envTexture;
+    for (const stop of this.dayNightCycle.getIBLStopDescriptors()) {
+      const { scene: iblScene, disposeResources } = this.createOutdoorIBLScene(stop);
+      this.iblStopTextures.push(pmremGenerator.fromScene(iblScene, 0.04).texture);
+      disposeResources();
+    }
+    this.activeIblStopIndex = initialFrame.iblStopIndex;
+    this.scene.environment = this.iblStopTextures[this.activeIblStopIndex] ?? null;
+    this.scene.environmentIntensity = initialFrame.envIntensity;
+    pmremGenerator.dispose();
 
     // 5. Sky Dome & Physical Sun Position
     this.setupSkyAndSun();
+    this.applyAtmosphereFrame(initialFrame, true);
+    this.dayNightCycle.onResync(() => {
+      this.applyAtmosphereFrame(this.dayNightCycle.update(0), true);
+    });
 
-    // 6. Build CVR Campus Layout & Colliders
-    this.campus = new CVRCampusMap(this.physics);
+    // 6. Initialize Shared Environmental Wind & Build CVR Campus Layout + Colliders
+    this.wind = new EnvironmentalWind();
+    this.livingSky.syncWind(this.wind.cloudSpeed, this.wind.windDir);
+    this.campus = new CVRCampusMap(this.physics, this.wind);
     this.scene.add(this.campus.group);
+    this.applyAtmosphereFrame(initialFrame, true);
 
     // 7. Spawn Rigged Humanoid Student Character
     this.player = new PlayerController(this.scene, this.physics);
@@ -93,46 +121,125 @@ export class GameEngine {
     // 8. Spawn Interactive Vehicles (CVR Bus, Campus Car, Campus Scooter)
     this.vehicles = new VehicleController(this.scene, this.physics);
 
-    // 9. Setup Smooth Orbit Camera
-    this.cameraController = new ThirdPersonCamera(this.canvas);
+    // 9. Initialize Bird Wildlife System (Telangana Campus Sky Species, initialized to current IST time)
+    this.birds = new BirdWildlifeSystem(this.scene, {
+      solarElevationDeg: initialFrame.solar.elevationDeg,
+      minutesSinceMidnight: initialFrame.solar.minutesSinceMidnight,
+      sunriseMinutes: initialFrame.solar.sunriseMinutes,
+      sunsetMinutes: initialFrame.solar.sunsetMinutes,
+    });
+
+    // 10. Setup Smooth Orbit Camera with physics raycasting for spring-arm collision
+    this.cameraController = new ThirdPersonCamera(this.canvas, this.physics);
+
+    // Sync Reset Gate (R) from PlayerController directly to GameEngine reset
+    this.player.onResetRequested = () => {
+      this.resetPlayerPosition();
+    };
+
+    // Snap initial camera behind player looking South (+Z)
+    const spawn = this.player.defaultSpawn;
+    this.cameraController.snapView(
+      Math.PI,
+      1.42,
+      5.2,
+      { x: spawn.x, y: spawn.y + 0.42, z: spawn.z }
+    );
+
+    // Pre-compile both daytime & dusk campus light shader variants during load so dusk never stalls FPS
+    this.campus.setNightLightingFactor(0.01);
+    this.renderer.compile(this.scene, this.cameraController.camera);
+    this.applyAtmosphereFrame(initialFrame, true);
 
     // 10. Attach Event Listeners
     window.addEventListener('resize', this.onResizeBound);
     window.addEventListener('keydown', this.onKeyDownBound);
   }
 
+  private createOutdoorIBLScene(
+    stop: IBLStopDescriptor
+  ): { scene: THREE.Scene; disposeResources: () => void } {
+    const iblScene = new THREE.Scene();
+
+    // Outdoor atmospheric sky dome for crisp outdoor reflections on metal, glass, and vehicles
+    const skyGeo = new THREE.SphereGeometry(20, 24, 16);
+    const skyMat = new THREE.ShaderMaterial({
+      side: THREE.BackSide,
+      uniforms: {
+        uHorizon: { value: stop.horizon.clone() },
+        uZenith: { value: stop.zenith.clone() },
+        uGround: { value: new THREE.Vector3(0.24, 0.20, 0.16) },
+      },
+      vertexShader: `
+        varying vec3 vDir;
+        void main() {
+          vDir = normalize(position);
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        varying vec3 vDir;
+        uniform vec3 uHorizon;
+        uniform vec3 uZenith;
+        uniform vec3 uGround;
+        void main() {
+          float y = vDir.y;
+          vec3 col = y >= 0.0
+            ? mix(uHorizon, uZenith, pow(clamp(y, 0.0, 1.0), 0.65))
+            : mix(uHorizon, uGround, smoothstep(0.0, -0.35, y));
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `,
+    });
+    iblScene.add(new THREE.Mesh(skyGeo, skyMat));
+
+    // Soft distant solar specular highlight disk in IBL aligned with keyframe sun direction
+    const sunGeo = new THREE.SphereGeometry(1.6, 12, 12);
+    const sunDiscMat = new THREE.MeshBasicMaterial({
+      color: new THREE.Color(
+        stop.sunSkyColor.x * 2.4,
+        stop.sunSkyColor.y * 2.4,
+        stop.sunSkyColor.z * 2.4
+      ),
+    });
+    const sunDisc = new THREE.Mesh(sunGeo, sunDiscMat);
+    sunDisc.position.copy(stop.sunDirection).multiplyScalar(14);
+    iblScene.add(sunDisc);
+
+    return {
+      scene: iblScene,
+      disposeResources: () => {
+        skyGeo.dispose();
+        skyMat.dispose();
+        sunGeo.dispose();
+        sunDiscMat.dispose();
+      },
+    };
+  }
+
   private setupSkyAndSun(): void {
-    // Atmospheric Sky Dome
-    this.sky = new Sky();
-    this.sky.scale.setScalar(450000);
-    this.scene.add(this.sky);
-
-    const sun = new THREE.Vector3();
-    const elevation = 28; // Warm golden morning/afternoon sun
-    const azimuth = 115;
-    const phi = THREE.MathUtils.degToRad(90 - elevation);
-    const theta = THREE.MathUtils.degToRad(azimuth);
-    sun.setFromSphericalCoords(1, phi, theta);
-
-    this.sky.material.uniforms['sunPosition'].value.copy(sun);
-    this.sky.material.uniforms['turbidity'].value = 8;
-    this.sky.material.uniforms['rayleigh'].value = 1.35;
-    this.sky.material.uniforms['mieCoefficient'].value = 0.005;
-    this.sky.material.uniforms['mieDirectionalG'].value = 0.8;
+    // Living Sky Dome with continuous procedural clouds
+    this.livingSky = new LivingSky({
+      sunDirection: new THREE.Vector3(0.5, 0.64, -0.4),
+      fogColor: this.fogColor,
+      windDirection: new THREE.Vector2(0.65, 0.35),
+      windSpeed: 0.018,
+      cloudCoverage: 0.44,
+    });
+    this.scene.add(this.livingSky.mesh);
 
     // Directional Sunlight with 2048x2048 Soft Shadow Map
-    this.dirLight = new THREE.DirectionalLight(0xfffaec, 2.5);
-    this.dirLight.position.set(sun.x * 200, sun.y * 200, sun.z * 200);
+    this.dirLight = new THREE.DirectionalLight(0xfff3de, 2.25);
     this.dirLight.castShadow = true;
 
     this.dirLight.shadow.mapSize.width = 2048;
     this.dirLight.shadow.mapSize.height = 2048;
     this.dirLight.shadow.camera.near = 10;
-    this.dirLight.shadow.camera.far = 420;
+    this.dirLight.shadow.camera.far = 380;
     this.dirLight.shadow.bias = -0.0004;
-    this.dirLight.shadow.normalBias = 0.02;
+    this.dirLight.shadow.normalBias = 0.015;
 
-    const shadowExtent = 110;
+    const shadowExtent = 75;
     this.dirLight.shadow.camera.left = -shadowExtent;
     this.dirLight.shadow.camera.right = shadowExtent;
     this.dirLight.shadow.camera.top = shadowExtent;
@@ -141,12 +248,111 @@ export class GameEngine {
     this.scene.add(this.dirLight);
     this.scene.add(this.dirLight.target);
 
-    // Ambient / Fill light
-    const hemiLight = new THREE.HemisphereLight(0xe0f2fe, 0x5a4a3a, 0.85);
-    this.scene.add(hemiLight);
+    // Natural sky-to-earth bounce fill light
+    this.hemiLight = new THREE.HemisphereLight(0x89b7e8, 0x473a2c, 0.42);
+    this.scene.add(this.hemiLight);
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
-    this.scene.add(ambientLight);
+    // Minimal ambient floor so cast shadows keep natural blue-sky contrast
+    this.ambientLight = new THREE.AmbientLight(0xfff4e0, 0.02);
+    this.scene.add(this.ambientLight);
+  }
+
+  public applyAtmosphereFrame(frame: AtmosphereFrame, forceCloudRefresh = false): void {
+    this.sunVec.copy(frame.shadowLightDirection);
+
+    this.dirLight.color.copy(frame.shadowLightColor);
+    this.dirLight.intensity = frame.shadowLightIntensity;
+    this.dirLight.position.set(this.sunVec.x * 160, this.sunVec.y * 160, this.sunVec.z * 160);
+
+    this.hemiLight.color.copy(frame.hemiSkyColor);
+    this.hemiLight.groundColor.copy(frame.hemiGroundColor);
+    this.hemiLight.intensity = frame.hemiIntensity;
+    this.ambientLight.intensity = frame.ambientIntensity;
+
+    if (
+      frame.iblStopIndex !== this.activeIblStopIndex &&
+      this.iblStopTextures[frame.iblStopIndex]
+    ) {
+      this.scene.environment = this.iblStopTextures[frame.iblStopIndex];
+      this.activeIblStopIndex = frame.iblStopIndex;
+    }
+    this.scene.environmentIntensity = frame.envIntensity;
+    this.renderer.toneMappingExposure = frame.exposure;
+
+    this.fogColor.copy(frame.fogColor);
+    if (this.scene.fog instanceof THREE.FogExp2) {
+      this.scene.fog.color.copy(this.fogColor);
+      this.scene.fog.density = frame.fogDensity;
+    } else {
+      this.scene.fog = new THREE.FogExp2(this.fogColor.clone(), frame.fogDensity);
+    }
+
+    this.livingSky.setAtmosphere({
+      sunDirection: frame.sunDirection,
+      moonDirection: frame.moonDirection,
+      zenith: frame.zenith,
+      midSky: frame.midSky,
+      horizon: frame.horizon,
+      sunColor: frame.sunSkyColor,
+      fogColor: this.fogColor,
+      cloudLitTint: frame.cloudLitTint,
+      cloudShadeTint: frame.cloudShadeTint,
+      sunDiscVisibility: frame.sunDiscVisibility,
+      starVisibility: frame.starVisibility,
+      moonVisibility: frame.moonVisibility,
+      moonPhaseIllumination: frame.solar.lunar.illumination,
+      moonlightStrength: frame.moonlightStrength,
+      forceCloudRefresh,
+    });
+
+    // Gradually activate campus street/architectural lighting from sunset (+4 deg) through civil dusk (-5.5 deg)
+    if (this.campus) {
+      const t = THREE.MathUtils.clamp((4.0 - frame.solar.elevationDeg) / 9.5, 0, 1);
+      const duskFactor = t * t * (3 - 2 * t);
+      this.campus.setNightLightingFactor(duskFactor);
+    }
+
+    // Sync time-aware natural wildlife with continuous solar state (preserving zero teleportation on jumps)
+    if (this.birds) {
+      this.birds.setSolarState({
+        solarElevationDeg: frame.solar.elevationDeg,
+        minutesSinceMidnight: frame.solar.minutesSinceMidnight,
+        sunriseMinutes: frame.solar.sunriseMinutes,
+        sunsetMinutes: frame.solar.sunsetMinutes,
+        isTimeJump: forceCloudRefresh,
+      });
+    }
+  }
+
+  public setTimePreview(hours: number, minutes = 0, seconds = 0): void {
+    this.dayNightCycle.setPreviewTime(hours, minutes, seconds);
+    this.applyAtmosphereFrame(this.dayNightCycle.getCurrentFrame(), true);
+    this.reportState();
+  }
+
+  public setDateTimePreview(
+    year: number,
+    month: number,
+    day: number,
+    hours: number,
+    minutes = 0,
+    seconds = 0
+  ): void {
+    this.dayNightCycle.setPreviewDateTime(year, month, day, hours, minutes, seconds);
+    this.applyAtmosphereFrame(this.dayNightCycle.getCurrentFrame(), true);
+    this.reportState();
+  }
+
+  public setRealTimeMode(): void {
+    this.dayNightCycle.setRealTimeMode();
+    this.applyAtmosphereFrame(this.dayNightCycle.getCurrentFrame(), true);
+    this.reportState();
+  }
+
+  public setAcceleratedDayNight(speedMultiplier = 60, startFromHour?: number): void {
+    this.dayNightCycle.setAcceleratedMode(speedMultiplier, startFromHour);
+    this.applyAtmosphereFrame(this.dayNightCycle.getCurrentFrame(), true);
+    this.reportState();
   }
 
   private handleKeyDown(e: KeyboardEvent): void {
@@ -208,6 +414,11 @@ export class GameEngine {
     // Sync visuals with Rapier physics
     this.player.updateVisuals();
     this.vehicles.updateVisuals();
+    this.campus.update(frameDelta);
+
+    // Continuous 24-hour Hyderabad Day/Night Cycle & Sky Updates
+    const atmosphereFrame = this.dayNightCycle.update(frameDelta);
+    this.applyAtmosphereFrame(atmosphereFrame, false);
 
     // Determine target entity for camera & sunlight
     let focusPos: { x: number; y: number; z: number };
@@ -220,16 +431,40 @@ export class GameEngine {
       activeSpeed = Math.abs(v.speed);
 
       // Follow vehicle with camera (distance = 7.5m for clear vehicle framing)
-      this.cameraController.update(frameDelta, focusPos, 0.4, 7.5);
+      this.cameraController.update(frameDelta, focusPos, 0.4, 7.5, v.collider);
     } else {
       const pPos = this.player.getPosition();
       focusPos = { x: pPos.x, y: pPos.y, z: pPos.z };
       // Follow character with camera (distance = 3.4m, upper chest target +0.42m)
-      this.cameraController.update(frameDelta, focusPos, 0.42);
+      this.cameraController.update(frameDelta, focusPos, 0.42, undefined, this.player.collider);
     }
 
     // Dynamic sunlight shadow camera tracking
     this.dirLight.target.position.set(focusPos.x, 0, focusPos.z);
+    this.dirLight.position.set(
+      focusPos.x + this.sunVec.x * 160,
+      this.sunVec.y * 160,
+      focusPos.z + this.sunVec.z * 160
+    );
+
+    // Update Shared Wind, Living Sky & continuous cloud simulation
+    this.wind.update(frameDelta);
+    this.livingSky.syncWind(this.wind.cloudSpeed, this.wind.windDir);
+    this.livingSky.update(frameDelta, this.cameraController.camera.position, this.renderer);
+
+    // Update Bird Wildlife System (flocks, branch lifecycle, obstacle & vehicle avoidance, live wind perch sync)
+    const activeVehiclePositions: { x: number; y: number; z: number }[] = [];
+    this.vehicles.vehicles.forEach((v) => {
+      const vp = v.rigidBody.translation();
+      activeVehiclePositions.push({ x: vp.x, y: vp.y, z: vp.z });
+    });
+    this.birds.update(
+      frameDelta,
+      focusPos,
+      this.cameraController.camera.position,
+      activeVehiclePositions,
+      this.wind
+    );
 
     // Render WebGL frame
     this.renderer.render(this.scene, this.cameraController.camera);
@@ -277,21 +512,40 @@ export class GameEngine {
       vehicleInteraction:
         this.vehicles.isDriving && this.vehicles.activeVehicle
           ? {
-              vehicleId: this.vehicles.activeVehicle.id,
-              vehicleName: this.vehicles.activeVehicle.name,
-              isDriving: true,
-              speedKmh: Math.round(Math.abs(this.vehicles.activeVehicle.speed) * 3.6),
-            }
+            vehicleId: this.vehicles.activeVehicle.id,
+            vehicleName: this.vehicles.activeVehicle.name,
+            isDriving: true,
+            speedKmh: Math.round(Math.abs(this.vehicles.activeVehicle.speed) * 3.6),
+          }
           : nearbyVehicle
-          ? {
+            ? {
               vehicleId: nearbyVehicle.id,
               vehicleName: nearbyVehicle.name,
               isDriving: false,
               speedKmh: 0,
             }
-          : null,
+            : null,
       activeCharacterId: this.player.activePreset?.id,
       activeCharacterName: this.player.activeCharacterName,
+      dayNight: (() => {
+        const solar = this.dayNightCycle.getCurrentFrame().solar;
+        return {
+          mode: solar.mode,
+          formattedTime24: solar.formattedTime24,
+          formattedTime12: solar.formattedTime12,
+          formattedDate: solar.formattedDate,
+          minutesSinceMidnight: solar.minutesSinceMidnight,
+          phase: solar.phase,
+          solarElevationDeg: solar.elevationDeg,
+          solarAzimuthDeg: solar.azimuthDeg,
+          sunriseFormatted: solar.sunriseFormatted,
+          sunsetFormatted: solar.sunsetFormatted,
+          moonPhaseName: solar.lunar.phaseName,
+          moonIlluminationPct: solar.lunar.illuminationPct,
+          moonElevationDeg: solar.lunar.elevationDeg,
+          moonAzimuthDeg: solar.lunar.azimuthDeg,
+        };
+      })(),
     });
   }
 
@@ -317,9 +571,16 @@ export class GameEngine {
     } else {
       this.player.resetPosition();
     }
+    const spawn = this.player.defaultSpawn;
+    this.cameraController.snapView(
+      Math.PI,
+      1.42,
+      5.2,
+      { x: spawn.x, y: spawn.y + 0.42, z: spawn.z }
+    );
   }
 
-  public teleportPlayer(x: number, y: number, z: number, facingAngle?: number): void {
+  public teleportPlayer(x: number, y: number, z: number, facingAngle: number = 0): void {
     if (this.vehicles.isDriving) {
       this.vehicles.exitVehicle((ex, ey, ez, ef) => {
         this.player.teleportTo(x, y, z, facingAngle || ef);
@@ -328,6 +589,12 @@ export class GameEngine {
     } else {
       this.player.teleportTo(x, y, z, facingAngle);
     }
+    this.cameraController.snapView(
+      facingAngle + Math.PI,
+      1.25,
+      3.4,
+      { x, y: y + 0.42, z }
+    );
   }
 
   private onResize(): void {
@@ -335,7 +602,7 @@ export class GameEngine {
     const width = window.innerWidth;
     const height = window.innerHeight;
     this.renderer.setSize(width, height);
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     this.cameraController.resize(width, height);
   }
 
@@ -352,10 +619,18 @@ export class GameEngine {
     window.removeEventListener('resize', this.onResizeBound);
     window.removeEventListener('keydown', this.onKeyDownBound);
 
+    this.dayNightCycle?.dispose();
+    for (const envTex of this.iblStopTextures) {
+      envTex?.dispose();
+    }
+    this.iblStopTextures = [];
+
     this.cameraController?.dispose();
     this.player?.dispose();
     this.vehicles?.dispose();
     this.campus?.dispose();
+    this.livingSky?.dispose();
+    this.birds?.dispose();
     this.physics?.dispose();
     this.renderer?.dispose();
   }

@@ -1,0 +1,137 @@
+{
+  "initialAudit": {
+    "counts": {
+      "pigeons": 9,
+      "eagles": 1,
+      "parrots": 0,
+      "phoenix": 0,
+      "total": 10
+    },
+    "animatedMetrics": {
+      "normScale": 0.14177,
+      "glidingWingspanMeters": 0.62,
+      "glidingLengthMeters": 0.3849,
+      "standingBodyLengthMeters": 0.3367,
+      "standingFeetLocalY": -0.1399,
+      "flappingSpanRangeMeters": [
+        0.1479,
+        0.5625
+      ],
+      "triangles": 710,
+      "meshes": 1
+    },
+    "perchSpotsCount": 10
+  },
+  "bench0": {
+    "population": 0,
+    "counts": {
+      "pigeons": 0,
+      "eagles": 0,
+      "parrots": 0,
+      "phoenix": 0,
+      "total": 0
+    },
+    "wallClockMs": 60004,
+    "framesRendered": 3596,
+    "avgFps": 59.93,
+    "onePercentLowFps": 59.52,
+    "avgFrameTimeMs": 16.69,
+    "p99FrameTimeMs": 16.8,
+    "maxFrameTimeMs": 100,
+    "spikesOver20ms": 1,
+    "spikesOver33ms": 1,
+    "avgDrawCalls": 220,
+    "avgTriangles": 1029758,
+    "animCpuStats": {
+      "lastMs": 0,
+      "avgMs": 0,
+      "samples": 0
+    },
+    "lifecyclesSeen": [],
+    "flightSubStatesSeen": [],
+    "obstacleOverlaps": 0,
+    "minPlayerDist": null,
+    "minCameraDist": null
+  },
+  "bench6": {
+    "population": 6,
+    "counts": {
+      "pigeons": 6,
+      "eagles": 0,
+      "parrots": 0,
+      "phoenix": 0,
+      "total": 6
+    },
+    "wallClockMs": 60004,
+    "framesRendered": 3601,
+    "avgFps": 60.01,
+    "onePercentLowFps": 59.52,
+    "avgFrameTimeMs": 16.66,
+    "p99FrameTimeMs": 16.8,
+    "maxFrameTimeMs": 16.8,
+    "spikesOver20ms": 0,
+    "spikesOver33ms": 0,
+    "avgDrawCalls": 235,
+    "avgTriangles": 1040653,
+    "animCpuStats": {
+      "lastMs": 0.2,
+      "avgMs": 0.3143,
+      "samples": 3613
+    },
+    "lifecyclesSeen": [
+      "FLYING",
+      "PERCHED",
+      "APPROACHING_BRANCH",
+      "TAKING_OFF",
+      "LANDING"
+    ],
+    "flightSubStatesSeen": [
+      "GLIDE",
+      "FLAP_BURST"
+    ],
+    "obstacleOverlaps": 1,
+    "minPlayerDist": 11.02,
+    "minCameraDist": 11.6
+  },
+  "bench10": {
+    "population": 10,
+    "counts": {
+      "pigeons": 9,
+      "eagles": 1,
+      "parrots": 0,
+      "phoenix": 0,
+      "total": 10
+    },
+    "wallClockMs": 60006,
+    "framesRendered": 3601,
+    "avgFps": 60.01,
+    "onePercentLowFps": 59.52,
+    "avgFrameTimeMs": 16.66,
+    "p99FrameTimeMs": 16.8,
+    "maxFrameTimeMs": 16.8,
+    "spikesOver20ms": 0,
+    "spikesOver33ms": 0,
+    "avgDrawCalls": 245,
+    "avgTriangles": 1055424,
+    "animCpuStats": {
+      "lastMs": 0.4,
+      "avgMs": 0.4061,
+      "samples": 3613
+    },
+    "lifecyclesSeen": [
+      "FLYING",
+      "PERCHED",
+      "APPROACHING_BRANCH",
+      "TAKING_OFF",
+      "LANDING"
+    ],
+    "flightSubStatesSeen": [
+      "FLAP_BURST",
+      "GLIDE"
+    ],
+    "obstacleOverlaps": 0,
+    "minPlayerDist": 10.96,
+    "minCameraDist": 11.82
+  },
+  "errors": []
+}

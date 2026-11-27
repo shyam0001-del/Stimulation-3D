@@ -1,0 +1,250 @@
+import * as THREE from 'three';
+
+export interface LivingSkyOptions {
+  sunDirection?: THREE.Vector3;
+  windDirection?: THREE.Vector2;
+  windSpeed?: number;
+  cloudCoverage?: number;
+  fogColor?: THREE.Color;
+}
+
+/**
+ * LivingSky — Physically inspired atmospheric sky dome with seamless continuous
+ * procedural cloud simulation, dual-layer cloud formations (cumulus & cirrus),
+ * domain-warped fluid evolution, solar forward scattering (silver lining),
+ * and soft horizon-fog integration.
+ */
+export class LivingSky {
+  public mesh: THREE.Mesh;
+  private material: THREE.ShaderMaterial;
+  private simTime = 0;
+  private sunDirection: THREE.Vector3;
+
+  constructor(options: LivingSkyOptions = {}) {
+    this.sunDirection = (options.sunDirection || new THREE.Vector3(0.65, 0.45, -0.6)).clone().normalize();
+    const wind = options.windDirection || new THREE.Vector2(0.55, 0.35);
+    const windSpeed = options.windSpeed ?? 0.018;
+    const cloudCoverage = options.cloudCoverage ?? 0.46;
+    const fogCol = options.fogColor || new THREE.Color(0xcfdde8);
+
+    // Large inverted sky dome centered at camera (radius 420 safely within camera far plane)
+    const geometry = new THREE.SphereGeometry(420, 64, 48);
+
+    this.material = new THREE.ShaderMaterial({
+      uniforms: {
+        uTime: { value: 0.0 },
+        uSunDirection: { value: this.sunDirection },
+        uWind: { value: wind.clone().normalize() },
+        uWindSpeed: { value: windSpeed },
+        uCloudCoverage: { value: cloudCoverage },
+        uFogColor: { value: new THREE.Vector3(fogCol.r, fogCol.g, fogCol.b) },
+        // Calibrated atmospheric daylight palette for Telangana / Hyderabad
+        uZenithColor: { value: new THREE.Vector3(0.14, 0.40, 0.74) },   // Deep rich blue overhead
+        uMidSkyColor: { value: new THREE.Vector3(0.28, 0.56, 0.85) },   // Bright atmospheric blue
+        uHorizonColor: { value: new THREE.Vector3(0.72, 0.82, 0.90) },  // Soft horizon haze
+        uSunColor: { value: new THREE.Vector3(1.0, 0.96, 0.88) },      // Warm sunlight tint
+      },
+      vertexShader: `
+        varying vec3 vWorldDirection;
+        varying vec3 vPosition;
+
+        void main() {
+          vPosition = position;
+          vWorldDirection = normalize(position);
+          // Standard skybox far-plane trick: depth = 1.0 (far plane)
+          vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+          gl_Position = (projectionMatrix * mvPosition).xyww;
+        }
+      `,
+      fragmentShader: `
+        uniform float uTime;
+        uniform vec3 uSunDirection;
+        uniform vec2 uWind;
+        uniform float uWindSpeed;
+        uniform float uCloudCoverage;
+        uniform vec3 uFogColor;
+        uniform vec3 uZenithColor;
+        uniform vec3 uMidSkyColor;
+        uniform vec3 uHorizonColor;
+        uniform vec3 uSunColor;
+
+        varying vec3 vWorldDirection;
+        varying vec3 vPosition;
+
+        // --- Fast 2D Simplex Noise with C1 Continuity ---
+        vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+        vec2 mod289(vec2 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+        vec3 permute(vec3 x) { return mod289(((x * 34.0) + 1.0) * x); }
+
+        float snoise(vec2 v) {
+          const vec4 C = vec4(0.211324865405187,
+                              0.366025403784439,
+                             -0.577350269189626,
+                              0.024390243902439);
+          vec2 i  = floor(v + dot(v, C.yy));
+          vec2 x0 = v -   i + dot(i, C.xx);
+          vec2 i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+          vec4 x12 = x0.xyxy + C.xxzz;
+          x12.xy -= i1;
+          i = mod289(i);
+          vec3 p = permute(permute(i.y + vec3(0.0, i1.y, 1.0))
+            + i.x + vec3(0.0, i1.x, 1.0));
+          vec3 m = max(0.5 - vec3(dot(x0, x0), dot(x12.xy, x12.xy), dot(x12.zw, x12.zw)), 0.0);
+          m = m * m;
+          m = m * m;
+          vec3 x = 2.0 * fract(p * C.www) - 1.0;
+          vec3 h = abs(x) - 0.5;
+          vec3 ox = floor(x + 0.5);
+          vec3 a0 = x - ox;
+          m *= 1.79284291400159 - 0.85373472095314 * (a0 * a0 + h * h);
+          vec3 g;
+          g.x  = a0.x  * x0.x  + h.x  * x0.y;
+          g.yz = a0.yz * x12.xz + h.yz * x12.yw;
+          return 130.0 * dot(m, g);
+        }
+
+        // 4-Octave Fractional Brownian Motion (FBM)
+        float fbm(vec2 p) {
+          float total = 0.0;
+          float amp = 0.500;
+          mat2 rot = mat2(1.6, 1.2, -1.2, 1.6);
+          for (int i = 0; i < 4; i++) {
+            total += amp * snoise(p);
+            p = rot * p * 1.02;
+            amp *= 0.5;
+          }
+          return total;
+        }
+
+        // Domain Warping for Organic Cloud Morphology Evolution
+        vec2 domainWarp(vec2 p, float t) {
+          float qx = fbm(p + vec2(0.0, t * 0.035));
+          float qy = fbm(p + vec2(4.2, 1.7 - t * 0.028));
+          return vec2(qx, qy);
+        }
+
+        void main() {
+          vec3 dir = normalize(vWorldDirection);
+          float y = dir.y;
+
+          // 1. Physically-inspired atmospheric sky gradient
+          float h = clamp(y, 0.0, 1.0);
+          float hazeFactor = exp(-h * 4.5);
+          float zenithFactor = pow(h, 0.75);
+
+          vec3 skyBase = mix(uHorizonColor, uMidSkyColor, smoothstep(0.02, 0.45, h));
+          skyBase = mix(skyBase, uZenithColor, zenithFactor);
+          skyBase = mix(skyBase, uHorizonColor, hazeFactor * 0.75);
+
+          // 2. Solar disc and Mie corona
+          float sunCos = dot(dir, uSunDirection);
+          float sunDisc = smoothstep(0.9992, 0.9998, sunCos);
+          float sunCorona = pow(max(sunCos, 0.0), 28.0) * 0.55 + pow(max(sunCos, 0.0), 3.5) * 0.22;
+          vec3 sunLight = uSunColor * (sunDisc * 4.2 + sunCorona * 1.6);
+          vec3 clearSky = skyBase + sunLight;
+
+          // 3. Spherical atmospheric shell projection
+          // Foreshortens clouds towards the horizon naturally like real cumulus decks
+          float domeProjection = 1.0 / (sqrt(max(y * y, 0.0) + 0.065) + 0.18 * max(y, 0.0));
+          vec2 cloudUV = dir.xz * domeProjection * 0.32;
+
+          // Stable simulation time independent of frame rate
+          float t = uTime * uWindSpeed;
+
+          // --- LAYER 1: Cumulus Clouds with Domain Warping ---
+          vec2 cumulusUV = cloudUV * 0.85 + uWind * t;
+          vec2 warpOffset = domainWarp(cumulusUV * 1.1, uTime * 0.04);
+          float cumulusNoise = fbm(cumulusUV + warpOffset * 0.42);
+          float cumulusRaw = cumulusNoise * 0.5 + 0.5;
+
+          // Density thresholding for realistic blue sky openings
+          float coverage = uCloudCoverage;
+          float cumulusDensity = smoothstep(coverage - 0.12, coverage + 0.28, cumulusRaw);
+
+          // --- LAYER 2: Wispy High-Altitude Cirrus Clouds ---
+          vec2 cirrusUV = cloudUV * 2.2 + (uWind * 1.45 + vec2(0.12, -0.06)) * (t * 1.35);
+          float c1 = snoise(vec2(cirrusUV.x * 2.5 + cirrusUV.y * 0.7, cirrusUV.y * 0.55));
+          float c2 = snoise(vec2(cirrusUV.x * 4.0, cirrusUV.y * 1.1 + uTime * 0.015));
+          float cirrusRaw = (c1 * 0.65 + c2 * 0.35) * 0.5 + 0.5;
+          float cirrusDensity = smoothstep(0.48, 0.82, cirrusRaw) * 0.42;
+
+          // --- Light Scattering & Volumetric Shading ---
+          // Forward Mie scattering (silver lining on edges towards sun)
+          float sunAlignment = max(sunCos, 0.0);
+          float silverLining = pow(sunAlignment, 5.0) * 0.85 + pow(sunAlignment, 16.0) * 1.4;
+
+          // Cloud undersides ambient self-shadowing (volumetric depth)
+          float coreDensity = smoothstep(coverage, coverage + 0.35, cumulusRaw);
+          vec3 cloudBaseShade = mix(vec3(0.56, 0.62, 0.72), skyBase, 0.25); // Cool ambient shadow underside
+          vec3 cloudSunlit = vec3(0.98, 0.99, 1.0) + uSunColor * (silverLining * 0.65);
+          vec3 cumulusColor = mix(cloudBaseShade, cloudSunlit, clamp(1.0 - coreDensity * 0.45 + silverLining * 0.35, 0.0, 1.5));
+
+          // Horizon atmospheric attenuation (fades smoothly to zero near ground/horizon)
+          float horizonFade = smoothstep(0.015, 0.22, y);
+          cumulusDensity *= horizonFade;
+          cirrusDensity *= horizonFade * (1.0 - cumulusDensity * 0.8);
+
+          // Combine cumulus and cirrus clouds over clear sky
+          vec3 cloudComposite = mix(clearSky, cumulusColor, cumulusDensity * 0.96);
+          vec3 cirrusColor = vec3(0.96, 0.98, 1.0) + uSunColor * (silverLining * 0.4);
+          cloudComposite = mix(cloudComposite, cirrusColor, cirrusDensity * horizonFade);
+
+          // 4. Horizon fog blending: blend seamlessly into scene fog below horizon
+          float groundFogBlend = smoothstep(-0.04, 0.06, y);
+          vec3 finalColor = mix(uFogColor, cloudComposite, groundFogBlend);
+
+          gl_FragColor = vec4(finalColor, 1.0);
+        }
+      `,
+      side: THREE.BackSide,
+      depthWrite: false,
+      depthTest: true,
+    });
+
+    this.mesh = new THREE.Mesh(geometry, this.material);
+    this.mesh.renderOrder = -1000;
+  }
+
+  /**
+   * Update the sky dome simulation.
+   * Keeps the dome centered on the camera and advances the continuous time.
+   */
+  public update(deltaTime: number, cameraPosition: THREE.Vector3): void {
+    this.mesh.position.copy(cameraPosition);
+    // Clamp frame delta to avoid sudden simulation jumps on hitch
+    const dt = Math.min(deltaTime, 0.1);
+    this.simTime += dt;
+    this.material.uniforms.uTime.value = this.simTime;
+  }
+
+  /**
+   * Update sun direction vector.
+   */
+  public setSunDirection(sunDir: THREE.Vector3): void {
+    this.sunDirection.copy(sunDir).normalize();
+    this.material.uniforms.uSunDirection.value.copy(this.sunDirection);
+  }
+
+  /**
+   * Adjust wind parameters dynamically.
+   */
+  public setWind(speed: number, direction?: THREE.Vector2): void {
+    this.material.uniforms.uWindSpeed.value = speed;
+    if (direction) {
+      this.material.uniforms.uWind.value.copy(direction).normalize();
+    }
+  }
+
+  /**
+   * Adjust cloud coverage fraction (0.0 = clear sky, 1.0 = heavy overcast).
+   * Default calibrated at 0.46 for authentic pleasant summer day with blue openings.
+   */
+  public setCloudCoverage(coverage: number): void {
+    this.material.uniforms.uCloudCoverage.value = THREE.MathUtils.clamp(coverage, 0.1, 0.9);
+  }
+
+  public dispose(): void {
+    this.mesh.geometry.dispose();
+    this.material.dispose();
+  }
+}

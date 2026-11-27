@@ -1,0 +1,256 @@
+{
+  "uiLayout": {
+    "groupRect": {
+      "x": 20,
+      "y": 187,
+      "w": 325,
+      "h": 38
+    },
+    "teleportRect": {
+      "x": 182,
+      "y": 149,
+      "w": 216,
+      "h": 30
+    },
+    "btns": [
+      {
+        "id": "balanced",
+        "text": "ABalanced",
+        "ariaPressed": "true",
+        "rect": {
+          "x": 93,
+          "y": 192,
+          "w": 79,
+          "h": 28
+        }
+      },
+      {
+        "id": "morning",
+        "text": "BMorning",
+        "ariaPressed": "false",
+        "rect": {
+          "x": 176,
+          "y": 192,
+          "w": 74,
+          "h": 28
+        }
+      },
+      {
+        "id": "afternoon",
+        "text": "CAfternoon",
+        "ariaPressed": "false",
+        "rect": {
+          "x": 254,
+          "y": 192,
+          "w": 84,
+          "h": 28
+        }
+      }
+    ]
+  },
+  "baselinePlayer": {
+    "x": 25,
+    "y": 0.83,
+    "z": -179.4746
+  },
+  "distinctEnvUuids": 3,
+  "results": [
+    {
+      "preset": "balanced",
+      "beforePlayer": {
+        "x": 25,
+        "y": 0.83,
+        "z": -179.4746
+      },
+      "afterPlayer": {
+        "x": 25,
+        "y": 0.83,
+        "z": -179.4746
+      },
+      "playerDelta": 0,
+      "camDelta": 0,
+      "afterState": {
+        "preset": "balanced",
+        "ariaPressed": {
+          "balanced": "true",
+          "morning": "false",
+          "afternoon": "false"
+        },
+        "playerPos": {
+          "x": 25,
+          "y": 0.83,
+          "z": -179.4746
+        },
+        "playerRotY": 0,
+        "camPos": {
+          "x": 25,
+          "y": 0.4688,
+          "z": -184.6156
+        },
+        "exposure": 0.98,
+        "envIntensity": 0.35,
+        "envUuid": "5758412e-f27b-401d-a205-38fb30db20d6",
+        "dirColor": "fff6e6",
+        "dirIntensity": 2.55,
+        "hemiIntensity": 0.68,
+        "ambientIntensity": 0.03,
+        "fogColor": "cce0f2",
+        "fogDensity": 0.0017,
+        "sunVec": {
+          "x": 0.462,
+          "y": 0.695,
+          "z": -0.551
+        },
+        "birdCounts": {
+          "pigeons": 9,
+          "eagles": 1,
+          "parrots": 0,
+          "phoenix": 0,
+          "total": 10
+        }
+      },
+      "fps": {
+        "frames": 301,
+        "durationMs": 5001.4,
+        "avgFps": 60.18,
+        "onePctLowFps": 59.52,
+        "avgDt": 16.62,
+        "maxDt": 16.8,
+        "drawCalls": 176,
+        "triangles": 815328
+      }
+    },
+    {
+      "preset": "morning",
+      "beforePlayer": {
+        "x": 25,
+        "y": 0.83,
+        "z": -179.4746
+      },
+      "afterPlayer": {
+        "x": 25,
+        "y": 0.83,
+        "z": -179.4746
+      },
+      "playerDelta": 0,
+      "camDelta": 0,
+      "afterState": {
+        "preset": "morning",
+        "ariaPressed": {
+          "balanced": "false",
+          "morning": "true",
+          "afternoon": "false"
+        },
+        "playerPos": {
+          "x": 25,
+          "y": 0.83,
+          "z": -179.4746
+        },
+        "playerRotY": 0,
+        "camPos": {
+          "x": 25,
+          "y": 0.4688,
+          "z": -184.6156
+        },
+        "exposure": 1,
+        "envIntensity": 0.36,
+        "envUuid": "fcc064b6-2a4e-42c7-8f5c-be8f215e97ed",
+        "dirColor": "ffe6bd",
+        "dirIntensity": 2.2,
+        "hemiIntensity": 0.74,
+        "ambientIntensity": 0.04,
+        "fogColor": "d8e4ee",
+        "fogDensity": 0.0023,
+        "sunVec": {
+          "x": 0.939,
+          "y": 0.342,
+          "z": 0.033
+        },
+        "birdCounts": {
+          "pigeons": 9,
+          "eagles": 1,
+          "parrots": 0,
+          "phoenix": 0,
+          "total": 10
+        }
+      },
+      "fps": {
+        "frames": 301,
+        "durationMs": 5009.4,
+        "avgFps": 60.09,
+        "onePctLowFps": 59.52,
+        "avgDt": 16.64,
+        "maxDt": 16.8,
+        "drawCalls": 175,
+        "triangles": 811928
+      }
+    },
+    {
+      "preset": "afternoon",
+      "beforePlayer": {
+        "x": 25,
+        "y": 0.83,
+        "z": -179.4746
+      },
+      "afterPlayer": {
+        "x": 25,
+        "y": 0.83,
+        "z": -179.4746
+      },
+      "playerDelta": 0,
+      "camDelta": 0,
+      "afterState": {
+        "preset": "afternoon",
+        "ariaPressed": {
+          "balanced": "false",
+          "morning": "false",
+          "afternoon": "true"
+        },
+        "playerPos": {
+          "x": 25,
+          "y": 0.83,
+          "z": -179.4746
+        },
+        "playerRotY": 0,
+        "camPos": {
+          "x": 25,
+          "y": 0.4688,
+          "z": -184.6156
+        },
+        "exposure": 0.95,
+        "envIntensity": 0.32,
+        "envUuid": "ceff75d8-1755-4fde-bc0c-7c1df4902cf0",
+        "dirColor": "ffd99c",
+        "dirIntensity": 2.75,
+        "hemiIntensity": 0.56,
+        "ambientIntensity": 0.02,
+        "fogColor": "d0d8e4",
+        "fogDensity": 0.0018,
+        "sunVec": {
+          "x": -0.679,
+          "y": 0.407,
+          "z": -0.611
+        },
+        "birdCounts": {
+          "pigeons": 9,
+          "eagles": 1,
+          "parrots": 0,
+          "phoenix": 0,
+          "total": 10
+        }
+      },
+      "fps": {
+        "frames": 301,
+        "durationMs": 5011.4,
+        "avgFps": 60.06,
+        "onePctLowFps": 59.52,
+        "avgDt": 16.65,
+        "maxDt": 16.8,
+        "drawCalls": 177,
+        "triangles": 812060
+      }
+    }
+  ],
+  "backToAPreset": "balanced",
+  "errors": []
+}

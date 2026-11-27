@@ -1,0 +1,226 @@
+{
+  "results": [
+    {
+      "label": "Remy Open Walk Forward (W)",
+      "desiredDist": 3.4,
+      "minActualDistFromPlayer": 3.399,
+      "maxActualDistFromPlayer": 3.459,
+      "endDistFromPlayer": 3.459,
+      "minCollisionDist": 3.4,
+      "maxSpeed": 2.55,
+      "playerSelfHits": 0
+    },
+    {
+      "label": "Remy Open Walk Backward (S)",
+      "desiredDist": 3.4,
+      "minActualDistFromPlayer": 3.341,
+      "maxActualDistFromPlayer": 3.399,
+      "endDistFromPlayer": 3.341,
+      "minCollisionDist": 3.4,
+      "maxSpeed": 2.55,
+      "playerSelfHits": 0
+    },
+    {
+      "label": "Remy Open Sprint Forward (Shift+W)",
+      "desiredDist": 3.4,
+      "minActualDistFromPlayer": 3.399,
+      "maxActualDistFromPlayer": 3.541,
+      "endDistFromPlayer": 3.4,
+      "minCollisionDist": 3.4,
+      "maxSpeed": 6.05,
+      "playerSelfHits": 0
+    },
+    {
+      "label": "Remy Open Sprint Backward (Shift+S)",
+      "desiredDist": 3.4,
+      "minActualDistFromPlayer": 3.259,
+      "maxActualDistFromPlayer": 3.399,
+      "endDistFromPlayer": 3.259,
+      "minCollisionDist": 3.4,
+      "maxSpeed": 6.05,
+      "playerSelfHits": 0
+    },
+    {
+      "label": "Remy Open Sprint Strafe Left (Shift+A)",
+      "desiredDist": 3.4,
+      "minActualDistFromPlayer": 3.399,
+      "maxActualDistFromPlayer": 3.403,
+      "endDistFromPlayer": 3.403,
+      "minCollisionDist": 3.4,
+      "maxSpeed": 6.05,
+      "playerSelfHits": 0
+    },
+    {
+      "label": "Remy Open Sprint Strafe Right (Shift+D)",
+      "desiredDist": 3.4,
+      "minActualDistFromPlayer": 3.399,
+      "maxActualDistFromPlayer": 3.403,
+      "endDistFromPlayer": 3.403,
+      "minCollisionDist": 3.4,
+      "maxSpeed": 6.05,
+      "playerSelfHits": 0
+    },
+    {
+      "label": "Remy Open Sprint Diag Back-Left (Shift+S+A)",
+      "desiredDist": 3.4,
+      "minActualDistFromPlayer": 3.302,
+      "maxActualDistFromPlayer": 3.399,
+      "endDistFromPlayer": 3.302,
+      "minCollisionDist": 3.4,
+      "maxSpeed": 6.05,
+      "playerSelfHits": 0
+    },
+    {
+      "label": "Remy Open Sprint Diag Back-Right (Shift+S+D)",
+      "desiredDist": 3.4,
+      "minActualDistFromPlayer": 3.302,
+      "maxActualDistFromPlayer": 3.399,
+      "endDistFromPlayer": 3.302,
+      "minCollisionDist": 3.4,
+      "maxSpeed": 6.05,
+      "playerSelfHits": 0
+    },
+    {
+      "label": "Remy Open Sprint Diag Fwd-Left (Shift+W+A)",
+      "desiredDist": 3.4,
+      "minActualDistFromPlayer": 3.399,
+      "maxActualDistFromPlayer": 3.501,
+      "endDistFromPlayer": 3.501,
+      "minCollisionDist": 3.4,
+      "maxSpeed": 6.05,
+      "playerSelfHits": 0
+    },
+    {
+      "label": "Remy Open Sprint Diag Fwd-Right (Shift+W+D)",
+      "desiredDist": 3.4,
+      "minActualDistFromPlayer": 3.399,
+      "maxActualDistFromPlayer": 3.501,
+      "endDistFromPlayer": 3.501,
+      "minCollisionDist": 3.4,
+      "maxSpeed": 6.05,
+      "playerSelfHits": 0
+    },
+    {
+      "label": "Remy Near Roadside Curb Sprint Back (Shift+S)",
+      "desiredDist": 3.4,
+      "minActualDistFromPlayer": 3.259,
+      "maxActualDistFromPlayer": 3.399,
+      "endDistFromPlayer": 3.259,
+      "minCollisionDist": 3.4,
+      "maxSpeed": 6.05,
+      "playerSelfHits": 0
+    },
+    {
+      "label": "Remy Near Avenue Trees Sprint Back (Shift+S)",
+      "desiredDist": 3.4,
+      "minActualDistFromPlayer": 3.259,
+      "maxActualDistFromPlayer": 3.399,
+      "endDistFromPlayer": 3.259,
+      "minCollisionDist": 3.4,
+      "maxSpeed": 6.05,
+      "playerSelfHits": 0
+    },
+    {
+      "label": "Remy Near Parked Buses Aisle Sprint Back (Shift+S)",
+      "desiredDist": 3.4,
+      "minActualDistFromPlayer": 3.259,
+      "maxActualDistFromPlayer": 3.399,
+      "endDistFromPlayer": 3.259,
+      "minCollisionDist": 3.4,
+      "maxSpeed": 6.05,
+      "playerSelfHits": 0
+    },
+    {
+      "label": "Remy Near Boundary Wall Sprint Sideways (Shift+D)",
+      "desiredDist": 3.4,
+      "minActualDistFromPlayer": 3.399,
+      "maxActualDistFromPlayer": 3.403,
+      "endDistFromPlayer": 3.403,
+      "minCollisionDist": 3.4,
+      "maxSpeed": 6.05,
+      "playerSelfHits": 0
+    },
+    {
+      "label": "Aarav Open Sprint Backward (Shift+S)",
+      "desiredDist": 3.4,
+      "minActualDistFromPlayer": 3.259,
+      "maxActualDistFromPlayer": 3.399,
+      "endDistFromPlayer": 3.259,
+      "minCollisionDist": 3.4,
+      "maxSpeed": 6.05,
+      "playerSelfHits": 0
+    },
+    {
+      "label": "Aarav Open Sprint Forward (Shift+W)",
+      "desiredDist": 3.4,
+      "minActualDistFromPlayer": 3.399,
+      "maxActualDistFromPlayer": 3.541,
+      "endDistFromPlayer": 3.541,
+      "minCollisionDist": 3.4,
+      "maxSpeed": 6.05,
+      "playerSelfHits": 0
+    }
+  ],
+  "obstruction": {
+    "obstructedDist": 1.261,
+    "obstructedColDist": 1.261,
+    "recoveredDist": 3.398,
+    "recoveryCurve": [
+      {
+        "frame": 0,
+        "playerX": 32.32,
+        "camDist": 1.261,
+        "colDist": 1.261
+      },
+      {
+        "frame": 8,
+        "playerX": 31.77,
+        "camDist": 1.261,
+        "colDist": 1.261
+      },
+      {
+        "frame": 16,
+        "playerX": 31.77,
+        "camDist": 2.494,
+        "colDist": 2.494
+      },
+      {
+        "frame": 24,
+        "playerX": 31.77,
+        "camDist": 3.088,
+        "colDist": 3.088
+      },
+      {
+        "frame": 32,
+        "playerX": 31.77,
+        "camDist": 3.293,
+        "colDist": 3.293
+      },
+      {
+        "frame": 40,
+        "playerX": 31.77,
+        "camDist": 3.363,
+        "colDist": 3.363
+      },
+      {
+        "frame": 48,
+        "playerX": 31.77,
+        "camDist": 3.387,
+        "colDist": 3.387
+      },
+      {
+        "frame": 56,
+        "playerX": 31.77,
+        "camDist": 3.396,
+        "colDist": 3.396
+      },
+      {
+        "frame": 64,
+        "playerX": 31.77,
+        "camDist": 3.398,
+        "colDist": 3.398
+      }
+    ]
+  },
+  "errors": []
+}

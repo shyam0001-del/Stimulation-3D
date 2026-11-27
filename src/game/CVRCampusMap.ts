@@ -1,6 +1,11 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js';
+import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import helvetikerBoldFont from '../assets/fonts/helvetiker_bold.typeface.json';
 import { PhysicsWorld } from './PhysicsWorld';
+import { EnvironmentalWind } from './EnvironmentalWind';
 import { CampusZone } from '../types/game';
 
 export class CVRCampusMap {
@@ -11,10 +16,22 @@ export class CVRCampusMap {
   // Track allocated resources for clean disposal
   private disposables: { dispose: () => void }[] = [];
 
+  // Static geometry batching bucket keyed by material UUID + shadow flags
+  private staticBatches: Map<
+    string,
+    {
+      mat: THREE.Material;
+      castShadow: boolean;
+      receiveShadow: boolean;
+      geos: THREE.BufferGeometry[];
+    }
+  > = new Map();
+  private readonly batchObj = new THREE.Object3D();
+
   // Procedural Canvas Textures
   private gateSignTex!: THREE.CanvasTexture;
   private sandstoneTex!: THREE.CanvasTexture;
-  private emblemTex!: THREE.CanvasTexture;
+  private emblemTex!: THREE.Texture;
   private curbTex!: THREE.CanvasTexture;
   private woodGrainTex!: THREE.CanvasTexture;
   private mainBlockSignTex!: THREE.CanvasTexture;
@@ -28,60 +45,91 @@ export class CVRCampusMap {
   private solarTex!: THREE.CanvasTexture;
   private asphaltPbrMap!: THREE.CanvasTexture;
   private asphaltRoughnessMap!: THREE.CanvasTexture;
+  private woodSlatMap!: THREE.CanvasTexture;
+  private woodSlatRoughnessMap!: THREE.CanvasTexture;
+  private woodSlatBumpMap!: THREE.CanvasTexture;
+  private sandstoneMap!: THREE.CanvasTexture;
+  private sandstoneRoughnessMap!: THREE.CanvasTexture;
+  private sandstoneBumpMap!: THREE.CanvasTexture;
+  private stackedStoneMap!: THREE.CanvasTexture;
+  private stackedStoneRoughnessMap!: THREE.CanvasTexture;
+  private stackedStoneBumpMap!: THREE.CanvasTexture;
+  private forecourtPaversMap!: THREE.CanvasTexture;
+  private forecourtPaversRoughnessMap!: THREE.CanvasTexture;
+  private forecourtPaversBumpMap!: THREE.CanvasTexture;
+  private standingLettersTex!: THREE.CanvasTexture;
 
   public waypointChevron?: THREE.Mesh;
+  private wind: EnvironmentalWind;
+  private instancedShrubs: { x: number; y: number; z: number; scale: number; matType: 'shrub' | 'yellow' | 'lime' }[] = [];
+  private windowNightUniform = { value: 0 };
+  private lastNightFactor = -1;
+  private lampEmissiveMat?: THREE.MeshStandardMaterial;
+  private gateDownlightMat?: THREE.MeshStandardMaterial;
+  private lightPoolMesh?: THREE.InstancedMesh;
+  private lightPoolMat?: THREE.MeshBasicMaterial;
+  private dynamicNightLights: { light: THREE.PointLight; maxIntensity: number }[] = [];
+  private signEmissiveMats: { mat: THREE.MeshStandardMaterial; scale: number }[] = [];
 
   // Materials dictionary
   private materials!: {
-    grass: THREE.MeshLambertMaterial;
-    grassLawn: THREE.MeshLambertMaterial;
-    redSoil: THREE.MeshLambertMaterial;
-    avenueConcrete: THREE.MeshLambertMaterial;
+    grass: THREE.MeshStandardMaterial;
+    grassLawn: THREE.MeshStandardMaterial;
+    redSoil: THREE.MeshStandardMaterial;
+    avenueConcrete: THREE.MeshStandardMaterial;
     asphalt: THREE.MeshStandardMaterial;
     highwayAsphalt: THREE.MeshStandardMaterial;
-    roadMarking: THREE.MeshBasicMaterial;
-    concrete: THREE.MeshLambertMaterial;
-    curbStripe: THREE.MeshLambertMaterial;
-    sandstoneMonument: THREE.MeshLambertMaterial;
-    concreteBorder: THREE.MeshLambertMaterial;
-    woodPillar: THREE.MeshLambertMaterial;
+    forecourtPavers: THREE.MeshStandardMaterial;
+    roadMarking: THREE.MeshStandardMaterial;
+    concrete: THREE.MeshStandardMaterial;
+    curbStripe: THREE.MeshStandardMaterial;
+    sandstoneMonument: THREE.MeshStandardMaterial;
+    concreteBorder: THREE.MeshStandardMaterial;
+    woodPillar: THREE.MeshStandardMaterial;
     gateDarkFrame: THREE.MeshStandardMaterial;
+    chromeStrut: THREE.MeshStandardMaterial;
+    chromeLetter: THREE.MeshStandardMaterial;
     ironGateBlack: THREE.MeshStandardMaterial;
     gateGold: THREE.MeshStandardMaterial;
     monumentCharcoal: THREE.MeshStandardMaterial;
-    planterStone: THREE.MeshLambertMaterial;
-    maroonWall: THREE.MeshLambertMaterial;
-    mainBlockBeige: THREE.MeshLambertMaterial;
-    academicWall: THREE.MeshLambertMaterial;
-    academicCornice: THREE.MeshLambertMaterial;
+    planterStone: THREE.MeshStandardMaterial;
+    boundaryWall: THREE.MeshStandardMaterial;
+    flowerYellow: THREE.MeshStandardMaterial;
+    flowerLime: THREE.MeshStandardMaterial;
+    maroonWall: THREE.MeshStandardMaterial;
+    mainBlockBeige: THREE.MeshStandardMaterial;
+    academicWall: THREE.MeshStandardMaterial;
+    academicCornice: THREE.MeshStandardMaterial;
+    sandSoil: THREE.MeshStandardMaterial;
     granitePillar: THREE.MeshStandardMaterial;
     windowGlass: THREE.MeshStandardMaterial;
-    windowFrameWhite: THREE.MeshLambertMaterial;
+    busWindowGlass: THREE.MeshStandardMaterial;
+    windowFrameWhite: THREE.MeshStandardMaterial;
     solarPanel: THREE.MeshStandardMaterial;
-    shedRoofRed: THREE.MeshLambertMaterial;
-    quadTowerBrown: THREE.MeshLambertMaterial;
-    busYellow: THREE.MeshLambertMaterial;
-    busTire: THREE.MeshLambertMaterial;
-    busRoofWhite: THREE.MeshLambertMaterial;
-    treeTrunk: THREE.MeshLambertMaterial;
-    treeFoliage1: THREE.MeshLambertMaterial;
-    treeFoliage2: THREE.MeshLambertMaterial;
-    hedgeGreen: THREE.MeshLambertMaterial;
+    shedRoofRed: THREE.MeshStandardMaterial;
+    quadTowerBrown: THREE.MeshStandardMaterial;
+    busYellow: THREE.MeshStandardMaterial;
+    busTire: THREE.MeshStandardMaterial;
+    busRoofWhite: THREE.MeshStandardMaterial;
+    treeTrunk: THREE.MeshStandardMaterial;
+    treeFoliage1: THREE.MeshStandardMaterial;
+    treeFoliage2: THREE.MeshStandardMaterial;
+    hedgeGreen: THREE.MeshStandardMaterial;
     bougainvillea: THREE.MeshStandardMaterial;
     bougainvilleaLeaves: THREE.MeshStandardMaterial;
     waypointChevron: THREE.MeshStandardMaterial;
-    boundaryWall: THREE.MeshLambertMaterial;
-    cricketTurf: THREE.MeshLambertMaterial;
-    cricketPitch: THREE.MeshLambertMaterial;
+    cricketTurf: THREE.MeshStandardMaterial;
+    cricketPitch: THREE.MeshStandardMaterial;
     steelTower: THREE.MeshStandardMaterial;
     royalBlueSign: THREE.MeshStandardMaterial;
     waterCanal: THREE.MeshStandardMaterial;
-    courtGreen: THREE.MeshLambertMaterial;
-    courtRed: THREE.MeshLambertMaterial;
+    courtGreen: THREE.MeshStandardMaterial;
+    courtRed: THREE.MeshStandardMaterial;
   };
 
-  constructor(physics: PhysicsWorld) {
+  constructor(physics: PhysicsWorld, wind?: EnvironmentalWind) {
     this.physics = physics;
+    this.wind = wind ?? new EnvironmentalWind();
     this.gltfLoader = new GLTFLoader();
     this.group = new THREE.Group();
     this.group.name = 'CVRCampusMap';
@@ -99,6 +147,13 @@ export class CVRCampusMap {
     this.buildCricketGroundAndSportsCourts();
     this.buildBoysHostelAndWestCampus();
     this.buildRachaKalwaCanalAndPerimeter();
+
+    // Flush all batched static infrastructure meshes & instanced wind-animated landscape shrubs
+    this.flushStaticBatches();
+    this.buildInstancedShrubsAndFlowers();
+
+    // Dynamic Phase D Automatic Campus Night Lighting (streetlights, pools, selective architectural washes)
+    this.buildDynamicCampusNightLighting();
   }
 
   // --- Procedural Canvas Textures & Materials Setup ---
@@ -108,23 +163,44 @@ export class CVRCampusMap {
     this.gateSignTex = this.createGateSignboardTexture();
     this.disposables.push(this.gateSignTex);
 
-    // 2. Procedural Sandstone Veining Texture (#dfba8c)
-    this.sandstoneTex = this.createSandstoneTexture();
-    this.disposables.push(this.sandstoneTex);
+    // 2. Procedural PBR Teak Wood Slat Textures
+    const woodPbr = this.createPbrWoodSlatTextures();
+    this.woodSlatMap = woodPbr.map;
+    this.woodSlatRoughnessMap = woodPbr.roughnessMap;
+    this.woodSlatBumpMap = woodPbr.bumpMap;
+    this.woodGrainTex = woodPbr.map;
+    this.disposables.push(this.woodSlatMap, this.woodSlatRoughnessMap, this.woodSlatBumpMap);
 
-    // 3. Procedural CVR Emblem Medallion Texture
-    this.emblemTex = this.createEmblemTexture();
+    // 3. Procedural PBR Travertine Sandstone Textures (#dfba8c / #e5be8a)
+    const sandstonePbr = this.createPbrSandstoneTextures();
+    this.sandstoneMap = sandstonePbr.map;
+    this.sandstoneRoughnessMap = sandstonePbr.roughnessMap;
+    this.sandstoneBumpMap = sandstonePbr.bumpMap;
+    this.sandstoneTex = sandstonePbr.map;
+    this.disposables.push(this.sandstoneMap, this.sandstoneRoughnessMap, this.sandstoneBumpMap);
+
+    // 4. Procedural PBR Stacked Ashlar Stone Textures
+    const stackedPbr = this.createPbrStackedStoneTextures();
+    this.stackedStoneMap = stackedPbr.map;
+    this.stackedStoneRoughnessMap = stackedPbr.roughnessMap;
+    this.stackedStoneBumpMap = stackedPbr.bumpMap;
+    this.disposables.push(this.stackedStoneMap, this.stackedStoneRoughnessMap, this.stackedStoneBumpMap);
+
+    // 5. Official Original CVR College of Engineering Emblem Texture
+    const textureLoader = new THREE.TextureLoader();
+    this.emblemTex = textureLoader.load('/textures/cvr_emblem.png');
+    this.emblemTex.colorSpace = THREE.SRGBColorSpace;
+    this.emblemTex.generateMipmaps = true;
+    this.emblemTex.minFilter = THREE.LinearMipmapLinearFilter;
+    this.emblemTex.magFilter = THREE.LinearFilter;
+    this.emblemTex.anisotropy = 16;
     this.disposables.push(this.emblemTex);
 
-    // 4. Procedural Yellow-and-Black Striped Curb Texture (#facc15 / #18181b)
+    // 7. Procedural Yellow-and-Black Striped Curb Texture (#facc15 / #18181b)
     this.curbTex = this.createCurbStripeTexture();
     this.disposables.push(this.curbTex);
 
-    // 5. Procedural Dark Walnut Wood-Grain Texture (#4a3222)
-    this.woodGrainTex = this.createWoodGrainTexture();
-    this.disposables.push(this.woodGrainTex);
-
-    // 6. Procedural Royal-Blue Signboard Textures
+    // 8. Procedural Royal-Blue Signboard Textures
     this.mainBlockSignTex = this.createSignboardTexture('MAIN BLOCK');
     this.pgBlockSignTex = this.createSignboardTexture('PG BLOCK');
     this.librarySignTex = this.createSignboardTexture('CENTRAL LIBRARY');
@@ -138,141 +214,268 @@ export class CVRCampusMap {
       this.cseSignTex
     );
 
-    // 7. Procedural Roofline "CVR COLLEGE OF ENGINEERING" Signboard Texture
+    // 9. Procedural Roofline "CVR COLLEGE OF ENGINEERING" Signboard Texture
     this.roofSignTex = this.createRooflineSignTexture();
     this.disposables.push(this.roofSignTex);
 
-    // 8. Procedural Gate Notice Board Texture ("B.Tech Admissions")
+    // 10. Procedural Gate Notice Board Texture ("B.Tech Admissions")
     this.noticeTex = this.createAdmissionNoticeTexture();
     this.disposables.push(this.noticeTex);
 
-    // 9. Procedural Blue "BUS PARKING" Sign Texture
+    // 11. Procedural Blue "BUS PARKING" Sign Texture
     this.busSignTex = this.createBusParkingSignTexture();
     this.disposables.push(this.busSignTex);
 
-    // 10. Procedural Solar Panel Grid Texture
+    // 12. Procedural Solar Panel Grid Texture
     this.solarTex = this.createSolarPanelTexture();
     this.disposables.push(this.solarTex);
 
-    // 11. Procedural Weathered Asphalt PBR Textures
+    // 13. Procedural Weathered Asphalt PBR Textures
     const asphaltPbr = this.createAsphaltPbrTextures();
     this.asphaltPbrMap = asphaltPbr.map;
     this.asphaltRoughnessMap = asphaltPbr.roughnessMap;
     this.disposables.push(this.asphaltPbrMap, this.asphaltRoughnessMap);
 
+    // 14. Procedural Grand Forecourt Plaza Ashlar Stone Pavers PBR Textures
+    const paverPbr = this.createForecourtPaverTextures();
+    this.forecourtPaversMap = paverPbr.map;
+    this.forecourtPaversRoughnessMap = paverPbr.roughnessMap;
+    this.forecourtPaversBumpMap = paverPbr.bumpMap;
+    this.disposables.push(this.forecourtPaversMap, this.forecourtPaversRoughnessMap, this.forecourtPaversBumpMap);
+
     this.materials = {
-      grass: new THREE.MeshLambertMaterial({ color: 0x42753a }),
-      grassLawn: new THREE.MeshLambertMaterial({ color: 0x558a43 }),
-      redSoil: new THREE.MeshLambertMaterial({ color: 0xaf5a34 }),
-      avenueConcrete: new THREE.MeshLambertMaterial({ color: 0xb8b2a6 }),
+      grass: new THREE.MeshStandardMaterial({ color: 0x417034, roughness: 0.94, metalness: 0.0 }),
+      grassLawn: new THREE.MeshStandardMaterial({ color: 0x4e853e, roughness: 0.92, metalness: 0.0 }),
+      redSoil: new THREE.MeshStandardMaterial({ color: 0x99502f, roughness: 0.95, metalness: 0.0 }),
+      avenueConcrete: new THREE.MeshStandardMaterial({ color: 0xa6a094, roughness: 0.88, metalness: 0.0 }),
       asphalt: new THREE.MeshStandardMaterial({
-        color: 0x484c54,
+        color: 0x3e434b,
         map: this.asphaltPbrMap,
         roughnessMap: this.asphaltRoughnessMap,
         bumpMap: this.asphaltRoughnessMap,
         bumpScale: 0.05,
-        roughness: 0.82,
-        metalness: 0.12,
+        roughness: 0.88,
+        metalness: 0.0,
       }),
       highwayAsphalt: new THREE.MeshStandardMaterial({
-        color: 0x32353b,
+        color: 0x30343b,
         map: this.asphaltPbrMap,
         roughnessMap: this.asphaltRoughnessMap,
-        roughness: 0.88,
-        metalness: 0.1,
+        roughness: 0.90,
+        metalness: 0.0,
       }),
-      roadMarking: new THREE.MeshBasicMaterial({ color: 0xffffff }),
-      concrete: new THREE.MeshLambertMaterial({ color: 0xded8cc }),
-      curbStripe: new THREE.MeshLambertMaterial({ map: this.curbTex }),
-      sandstoneMonument: new THREE.MeshLambertMaterial({ map: this.sandstoneTex }),
-      concreteBorder: new THREE.MeshLambertMaterial({ color: 0xb8bcb8 }),
-      woodPillar: new THREE.MeshLambertMaterial({ map: this.woodGrainTex }),
+      forecourtPavers: new THREE.MeshStandardMaterial({
+        color: 0xe2ddd2,
+        map: this.forecourtPaversMap,
+        roughnessMap: this.forecourtPaversRoughnessMap,
+        bumpMap: this.forecourtPaversBumpMap,
+        bumpScale: 0.06,
+        roughness: 0.80,
+        metalness: 0.0,
+      }),
+      roadMarking: new THREE.MeshStandardMaterial({ color: 0xdbe0e6, roughness: 0.72, metalness: 0.0 }),
+      concrete: new THREE.MeshStandardMaterial({ color: 0xbcb5a8, roughness: 0.88, metalness: 0.0 }),
+      curbStripe: new THREE.MeshStandardMaterial({ map: this.curbTex, roughness: 0.84, metalness: 0.0 }),
+      sandstoneMonument: new THREE.MeshStandardMaterial({
+        color: 0xd8ceb8,
+        map: this.sandstoneMap,
+        roughnessMap: this.sandstoneRoughnessMap,
+        bumpMap: this.sandstoneBumpMap,
+        bumpScale: 0.05,
+        roughness: 0.76,
+        metalness: 0.0,
+      }),
+      concreteBorder: new THREE.MeshStandardMaterial({
+        color: 0xb4aea1,
+        roughness: 0.84,
+        metalness: 0.0,
+      }),
+      woodPillar: new THREE.MeshStandardMaterial({
+        map: this.woodSlatMap,
+        roughnessMap: this.woodSlatRoughnessMap,
+        bumpMap: this.woodSlatBumpMap,
+        bumpScale: 0.04,
+        roughness: 0.58,
+        metalness: 0.0,
+      }),
       gateDarkFrame: new THREE.MeshStandardMaterial({
-        color: 0x374151,
-        roughness: 0.35,
-        metalness: 0.65,
+        color: 0x22262c,
+        roughness: 0.36,
+        metalness: 0.72,
+      }),
+      chromeStrut: new THREE.MeshStandardMaterial({
+        color: 0xd8e0e8,
+        roughness: 0.20,
+        metalness: 0.90,
+      }),
+      chromeLetter: new THREE.MeshStandardMaterial({
+        map: this.standingLettersTex,
+        roughness: 0.22,
+        metalness: 0.88,
+        alphaTest: 0.4,
+        transparent: true,
+        side: THREE.DoubleSide,
       }),
       ironGateBlack: new THREE.MeshStandardMaterial({
-        color: 0x14171a,
-        roughness: 0.25,
-        metalness: 0.85,
+        color: 0x15181c,
+        roughness: 0.34,
+        metalness: 0.82,
       }),
       gateGold: new THREE.MeshStandardMaterial({
-        color: 0xeab308,
-        roughness: 0.2,
-        metalness: 0.9,
+        color: 0xd98e14,
+        roughness: 0.22,
+        metalness: 0.90,
       }),
       monumentCharcoal: new THREE.MeshStandardMaterial({
-        color: 0x26292e,
-        roughness: 0.4,
-        metalness: 0.5,
+        color: 0x181a1f,
+        roughness: 0.48,
+        metalness: 0.55,
       }),
-      planterStone: new THREE.MeshLambertMaterial({ color: 0x9c8c7a }),
-      maroonWall: new THREE.MeshLambertMaterial({ color: 0x6b2d2d }),
-      mainBlockBeige: new THREE.MeshLambertMaterial({ color: 0xdfc196 }),
-      academicWall: new THREE.MeshLambertMaterial({ color: 0xe5dcc5 }),
-      academicCornice: new THREE.MeshLambertMaterial({ color: 0xc7b99e }),
+      planterStone: new THREE.MeshStandardMaterial({
+        color: 0xdcd6cb,
+        map: this.stackedStoneMap,
+        roughnessMap: this.stackedStoneRoughnessMap,
+        bumpMap: this.stackedStoneBumpMap,
+        bumpScale: 0.08,
+        roughness: 0.82,
+        metalness: 0.0,
+      }),
+      boundaryWall: new THREE.MeshStandardMaterial({
+        color: 0xc9c1ad,
+        roughness: 0.88,
+        metalness: 0.0,
+      }),
+      flowerYellow: new THREE.MeshStandardMaterial({
+        color: 0xdba818,
+        roughness: 0.55,
+        metalness: 0.0,
+      }),
+      flowerLime: new THREE.MeshStandardMaterial({
+        color: 0x7cb82e,
+        roughness: 0.58,
+        metalness: 0.0,
+      }),
+      maroonWall: new THREE.MeshStandardMaterial({ color: 0x5c2626, roughness: 0.85, metalness: 0.0 }),
+      mainBlockBeige: new THREE.MeshStandardMaterial({ color: 0xd1b389, roughness: 0.85, metalness: 0.0 }),
+      academicWall: new THREE.MeshStandardMaterial({ color: 0xd6cebc, roughness: 0.85, metalness: 0.0 }),
+      academicCornice: new THREE.MeshStandardMaterial({ color: 0xb7aa92, roughness: 0.82, metalness: 0.0 }),
+      sandSoil: new THREE.MeshStandardMaterial({ color: 0xc0a689, roughness: 0.94, metalness: 0.0 }),
       granitePillar: new THREE.MeshStandardMaterial({
-        color: 0x3b2820,
-        roughness: 0.15,
-        metalness: 0.75,
+        color: 0x2e1f18,
+        roughness: 0.24,
+        metalness: 0.05,
       }),
-      windowGlass: new THREE.MeshStandardMaterial({
-        color: 0x1e293b,
+      windowGlass: (() => {
+        const mat = new THREE.MeshStandardMaterial({
+          color: 0x1a2636,
+          roughness: 0.12,
+          metalness: 0.88,
+        });
+        mat.customProgramCacheKey = () => 'cvr_selective_window_v1';
+        mat.onBeforeCompile = (shader) => {
+          shader.uniforms.uNightFactor = this.windowNightUniform;
+          shader.vertexShader = shader.vertexShader
+            .replace(
+              '#include <common>',
+              `#include <common>
+               varying vec3 vWinWorldPos;`
+            )
+            .replace(
+              '#include <worldpos_vertex>',
+              `#include <worldpos_vertex>
+               vWinWorldPos = (modelMatrix * vec4(transformed, 1.0)).xyz;`
+            );
+          shader.fragmentShader = shader.fragmentShader
+            .replace(
+              '#include <common>',
+              `#include <common>
+               uniform float uNightFactor;
+               varying vec3 vWinWorldPos;`
+            )
+            .replace(
+              '#include <emissivemap_fragment>',
+              `#include <emissivemap_fragment>
+               if (uNightFactor > 0.002) {
+                 float bayCoord = vWinWorldPos.x + vWinWorldPos.z;
+                 float bayX = floor(bayCoord / 3.2);
+                 float bayY = floor(vWinWorldPos.y / 3.4);
+                 vec2 paneLocal = vec2(
+                   fract(bayCoord / 1.6),
+                   fract((vWinWorldPos.y - 0.15) / 1.65)
+                 );
+                 float frameX = smoothstep(0.0, 0.06, paneLocal.x) * (1.0 - smoothstep(0.94, 1.0, paneLocal.x));
+                 float frameY = smoothstep(0.0, 0.08, paneLocal.y) * (1.0 - smoothstep(0.92, 1.0, paneLocal.y));
+                 float mullionMask = frameX * frameY * step(0.08, fract(bayCoord / 3.2));
+                 float hRoom = fract(sin(dot(vec2(bayX, bayY), vec2(127.1, 311.7))) * 43758.5453);
+                 float hTemp = fract(sin(dot(vec2(bayX, bayY), vec2(269.5, 183.3))) * 43758.5453);
+                 float isLit = step(0.58, hRoom);
+                 vec3 warmRoom = vec3(1.0, 0.78, 0.48);
+                 vec3 neutralRoom = vec3(0.94, 0.94, 0.90);
+                 vec3 roomCol = mix(warmRoom, neutralRoom, smoothstep(0.15, 0.85, hTemp));
+                 float vertGrad = 0.52 + 0.48 * paneLocal.y;
+                 float brightness = 0.42 + 0.58 * fract(hRoom * 17.3);
+                 totalEmissiveRadiance += roomCol * (isLit * mullionMask * vertGrad * brightness * uNightFactor * 0.95);
+               }`
+            );
+        };
+        return mat;
+      })(),
+      busWindowGlass: new THREE.MeshStandardMaterial({
+        color: 0x1a2636,
         roughness: 0.12,
         metalness: 0.88,
       }),
-      windowFrameWhite: new THREE.MeshLambertMaterial({ color: 0xf8fafc }),
+      windowFrameWhite: new THREE.MeshStandardMaterial({ color: 0xdce2e8, roughness: 0.55, metalness: 0.05 }),
       solarPanel: new THREE.MeshStandardMaterial({
         map: this.solarTex,
-        roughness: 0.25,
-        metalness: 0.65,
+        roughness: 0.28,
+        metalness: 0.62,
       }),
-      shedRoofRed: new THREE.MeshLambertMaterial({ color: 0xd9776c }),
-      quadTowerBrown: new THREE.MeshLambertMaterial({ color: 0x8c6244 }),
-      busYellow: new THREE.MeshLambertMaterial({ color: 0xfacc15 }),
-      busTire: new THREE.MeshLambertMaterial({ color: 0x18181b }),
-      busRoofWhite: new THREE.MeshLambertMaterial({ color: 0xf8fafc }),
-      treeTrunk: new THREE.MeshLambertMaterial({ color: 0x422f24 }),
-      treeFoliage1: new THREE.MeshLambertMaterial({ color: 0x2e592b }),
-      treeFoliage2: new THREE.MeshLambertMaterial({ color: 0x3c7336 }),
-      hedgeGreen: new THREE.MeshLambertMaterial({ color: 0x294d25 }),
+      shedRoofRed: new THREE.MeshStandardMaterial({ color: 0xb85f56, roughness: 0.72, metalness: 0.15 }),
+      quadTowerBrown: new THREE.MeshStandardMaterial({ color: 0x7a543a, roughness: 0.82, metalness: 0.0 }),
+      busYellow: new THREE.MeshStandardMaterial({ color: 0xe8ad18, roughness: 0.34, metalness: 0.08 }),
+      busTire: new THREE.MeshStandardMaterial({ color: 0x1a1c20, roughness: 0.90, metalness: 0.0 }),
+      busRoofWhite: new THREE.MeshStandardMaterial({ color: 0xdce2ea, roughness: 0.46, metalness: 0.02 }),
+      treeTrunk: new THREE.MeshStandardMaterial({ color: 0x453125, roughness: 0.92, metalness: 0.0 }),
+      treeFoliage1: new THREE.MeshStandardMaterial({ color: 0x2f5a2b, roughness: 0.84, metalness: 0.0 }),
+      treeFoliage2: new THREE.MeshStandardMaterial({ color: 0x3b7135, roughness: 0.84, metalness: 0.0 }),
+      hedgeGreen: new THREE.MeshStandardMaterial({ color: 0x2f5929, roughness: 0.86, metalness: 0.0 }),
       bougainvillea: new THREE.MeshStandardMaterial({
-        color: 0xdb2777,
-        roughness: 0.65,
-        metalness: 0.05,
+        color: 0xc4226a,
+        roughness: 0.70,
+        metalness: 0.0,
       }),
       bougainvilleaLeaves: new THREE.MeshStandardMaterial({
-        color: 0x15803d,
-        roughness: 0.7,
+        color: 0x166b34,
+        roughness: 0.78,
+        metalness: 0.0,
       }),
       waypointChevron: new THREE.MeshStandardMaterial({
-        color: 0xf59e0b,
-        emissive: 0xd97706,
-        emissiveIntensity: 1.2,
-        roughness: 0.2,
-        metalness: 0.8,
+        color: 0xd98e14,
+        emissive: 0xb45309,
+        emissiveIntensity: 0.75,
+        roughness: 0.25,
+        metalness: 0.75,
       }),
-      boundaryWall: new THREE.MeshLambertMaterial({ color: 0xdcd3c0 }),
-      cricketTurf: new THREE.MeshLambertMaterial({ color: 0x3a8235 }),
-      cricketPitch: new THREE.MeshLambertMaterial({ color: 0xc4a47c }),
+      cricketTurf: new THREE.MeshStandardMaterial({ color: 0x326f2d, roughness: 0.92, metalness: 0.0 }),
+      cricketPitch: new THREE.MeshStandardMaterial({ color: 0xb2936c, roughness: 0.92, metalness: 0.0 }),
       steelTower: new THREE.MeshStandardMaterial({
-        color: 0x64748b,
-        roughness: 0.35,
-        metalness: 0.8,
+        color: 0x5c6b7c,
+        roughness: 0.38,
+        metalness: 0.78,
       }),
       royalBlueSign: new THREE.MeshStandardMaterial({
         map: this.mainBlockSignTex,
-        roughness: 0.3,
-        metalness: 0.5,
+        roughness: 0.42,
+        metalness: 0.15,
       }),
       waterCanal: new THREE.MeshStandardMaterial({
-        color: 0x0284c7,
-        roughness: 0.1,
-        metalness: 0.2,
+        color: 0x0e6b9c,
+        roughness: 0.14,
+        metalness: 0.15,
       }),
-      courtGreen: new THREE.MeshLambertMaterial({ color: 0x065f46 }),
-      courtRed: new THREE.MeshLambertMaterial({ color: 0x991b1b }),
+      courtGreen: new THREE.MeshStandardMaterial({ color: 0x0a4d3b, roughness: 0.85, metalness: 0.0 }),
+      courtRed: new THREE.MeshStandardMaterial({ color: 0x7f1b1b, roughness: 0.85, metalness: 0.0 }),
     };
 
     Object.values(this.materials).forEach((mat) => this.disposables.push(mat));
@@ -305,72 +508,401 @@ export class CVRCampusMap {
     return texture;
   }
 
-  private createSandstoneTexture(): THREE.CanvasTexture {
+  private createPbrWoodSlatTextures(): {
+    map: THREE.CanvasTexture;
+    roughnessMap: THREE.CanvasTexture;
+    bumpMap: THREE.CanvasTexture;
+  } {
+    const size = 1024;
+    const diffCanvas = document.createElement('canvas');
+    diffCanvas.width = size;
+    diffCanvas.height = size;
+    const dCtx = diffCanvas.getContext('2d')!;
+
+    const roughCanvas = document.createElement('canvas');
+    roughCanvas.width = size;
+    roughCanvas.height = size;
+    const rCtx = roughCanvas.getContext('2d')!;
+
+    const bumpCanvas = document.createElement('canvas');
+    bumpCanvas.width = size;
+    bumpCanvas.height = size;
+    const bCtx = bumpCanvas.getContext('2d')!;
+
+    // 32 horizontal architectural teak slats (32px each)
+    const plankCount = 32;
+    const plankH = size / plankCount;
+    for (let i = 0; i < plankCount; i++) {
+      const y = i * plankH;
+      const hue = 25 + (Math.sin(i * 3.7) * 3);
+      const sat = 56 + (Math.cos(i * 2.1) * 8);
+      const lum = 30 + (Math.sin(i * 5.3) * 6);
+      dCtx.fillStyle = `hsl(${hue}, ${sat}%, ${lum}%)`;
+      dCtx.fillRect(0, y, size, plankH);
+
+      rCtx.fillStyle = '#6e6e6e'; // base roughness ~0.42
+      rCtx.fillRect(0, y, size, plankH);
+
+      bCtx.fillStyle = '#808080'; // base bump 128
+      bCtx.fillRect(0, y, size, plankH);
+
+      // Fine organic wood grain lines
+      for (let g = 0; g < 30; g++) {
+        const gy = y + Math.random() * plankH;
+        const gAlpha = 0.08 + Math.random() * 0.16;
+        const gLum = lum + (Math.random() > 0.5 ? 10 : -10);
+        dCtx.fillStyle = `hsla(${hue}, ${sat}%, ${gLum}%, ${gAlpha})`;
+        dCtx.fillRect(0, gy, size, 1 + Math.random() * 1.5);
+
+        // Bump variation
+        bCtx.fillStyle = Math.random() > 0.5 ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.09)';
+        bCtx.fillRect(0, gy, size, 1 + Math.random() * 1.5);
+      }
+
+      // Top bevel highlight on plank edge
+      dCtx.fillStyle = 'rgba(255, 230, 200, 0.32)';
+      dCtx.fillRect(0, y, size, 2);
+      bCtx.fillStyle = '#c0c0c0';
+      bCtx.fillRect(0, y, size, 2);
+
+      // Recessed dark shadow groove between planks
+      dCtx.fillStyle = '#120a05';
+      dCtx.fillRect(0, y + plankH - 3, size, 3);
+
+      rCtx.fillStyle = '#f0f0f0'; // high roughness in groove ~0.92
+      rCtx.fillRect(0, y + plankH - 3, size, 3);
+
+      bCtx.fillStyle = '#151515'; // deep groove in bump map
+      bCtx.fillRect(0, y + plankH - 3, size, 3);
+    }
+
+    const map = new THREE.CanvasTexture(diffCanvas);
+    map.wrapS = THREE.RepeatWrapping;
+    map.wrapT = THREE.RepeatWrapping;
+    map.repeat.set(1, 1);
+    map.colorSpace = THREE.SRGBColorSpace;
+
+    const roughnessMap = new THREE.CanvasTexture(roughCanvas);
+    roughnessMap.wrapS = THREE.RepeatWrapping;
+    roughnessMap.wrapT = THREE.RepeatWrapping;
+    roughnessMap.repeat.set(1, 1);
+
+    const bumpMap = new THREE.CanvasTexture(bumpCanvas);
+    bumpMap.wrapS = THREE.RepeatWrapping;
+    bumpMap.wrapT = THREE.RepeatWrapping;
+    bumpMap.repeat.set(1, 1);
+
+    return { map, roughnessMap, bumpMap };
+  }
+
+  private createPbrSandstoneTextures(): {
+    map: THREE.CanvasTexture;
+    roughnessMap: THREE.CanvasTexture;
+    bumpMap: THREE.CanvasTexture;
+  } {
+    const size = 1024;
+    const diffCanvas = document.createElement('canvas');
+    diffCanvas.width = size;
+    diffCanvas.height = size;
+    const dCtx = diffCanvas.getContext('2d')!;
+
+    const roughCanvas = document.createElement('canvas');
+    roughCanvas.width = size;
+    roughCanvas.height = size;
+    const rCtx = roughCanvas.getContext('2d')!;
+
+    const bumpCanvas = document.createElement('canvas');
+    bumpCanvas.width = size;
+    bumpCanvas.height = size;
+    const bCtx = bumpCanvas.getContext('2d')!;
+
+    // 8 coursed travertine ashlar courses (128px course height)
+    const courseH = 128;
+    for (let c = 0; c < 8; c++) {
+      const cy = c * courseH;
+      // Warm golden-ochre travertine base tones matching target reference (#c89b58, #d9af6e)
+      const courseHue = 33 + ((c * 5) % 6);
+      const courseSat = 46 + ((c * 9) % 12);
+      const courseLum = 58 + ((c * 11) % 10 - 5);
+
+      dCtx.fillStyle = `hsl(${courseHue}, ${courseSat}%, ${courseLum}%)`;
+      dCtx.fillRect(0, cy, size, courseH);
+
+      rCtx.fillStyle = '#858585'; // base roughness ~0.52
+      rCtx.fillRect(0, cy, size, courseH);
+
+      bCtx.fillStyle = '#808080';
+      bCtx.fillRect(0, cy, size, courseH);
+
+      // Fine organic sedimentary veins and porous travertine micro-pits
+      for (let v = 0; v < 35; v++) {
+        const vy = cy + Math.random() * courseH;
+        const vAlpha = 0.08 + Math.random() * 0.18;
+        const vLum = courseLum + (Math.random() > 0.5 ? 8 : -8);
+        dCtx.fillStyle = `hsla(${courseHue}, ${courseSat}%, ${vLum}%, ${vAlpha})`;
+        dCtx.fillRect(0, vy, size, 1 + Math.random() * 2.5);
+
+        bCtx.fillStyle = Math.random() > 0.5 ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)';
+        bCtx.fillRect(0, vy, size, 1 + Math.random() * 2.5);
+      }
+
+      // Porous travertine pits
+      for (let p = 0; p < 60; p++) {
+        const px = Math.random() * size;
+        const py = cy + Math.random() * courseH;
+        dCtx.fillStyle = 'rgba(70, 45, 25, 0.22)';
+        dCtx.fillRect(px, py, 2 + Math.random() * 3, 1 + Math.random() * 2);
+        bCtx.fillStyle = '#404040';
+        bCtx.fillRect(px, py, 2 + Math.random() * 3, 1 + Math.random() * 2);
+      }
+
+      // Top beveled highlight
+      dCtx.fillStyle = 'rgba(255, 250, 235, 0.40)';
+      dCtx.fillRect(0, cy, size, 2);
+      bCtx.fillStyle = '#b8b8b8';
+      bCtx.fillRect(0, cy, size, 2);
+
+      // Recessed mortar groove
+      dCtx.fillStyle = 'rgba(55, 38, 22, 0.85)';
+      dCtx.fillRect(0, cy + courseH - 3, size, 3);
+      rCtx.fillStyle = '#dedede';
+      rCtx.fillRect(0, cy + courseH - 3, size, 3);
+      bCtx.fillStyle = '#1e1e1e';
+      bCtx.fillRect(0, cy + courseH - 3, size, 3);
+
+      // Staggered vertical joints
+      const xOffset = ((c % 2) === 0 ? 0 : 256);
+      for (let x = xOffset; x < size; x += 512) {
+        dCtx.fillStyle = 'rgba(255, 250, 235, 0.30)';
+        dCtx.fillRect(x - 1, cy, 1, courseH);
+        dCtx.fillStyle = 'rgba(55, 38, 22, 0.85)';
+        dCtx.fillRect(x, cy, 3, courseH);
+
+        rCtx.fillStyle = '#dedede';
+        rCtx.fillRect(x, cy, 3, courseH);
+
+        bCtx.fillStyle = '#1e1e1e';
+        bCtx.fillRect(x, cy, 3, courseH);
+      }
+    }
+
+    const map = new THREE.CanvasTexture(diffCanvas);
+    map.wrapS = THREE.RepeatWrapping;
+    map.wrapT = THREE.RepeatWrapping;
+    map.repeat.set(2, 2);
+    map.colorSpace = THREE.SRGBColorSpace;
+
+    const roughnessMap = new THREE.CanvasTexture(roughCanvas);
+    roughnessMap.wrapS = THREE.RepeatWrapping;
+    roughnessMap.wrapT = THREE.RepeatWrapping;
+    roughnessMap.repeat.set(2, 2);
+
+    const bumpMap = new THREE.CanvasTexture(bumpCanvas);
+    bumpMap.wrapS = THREE.RepeatWrapping;
+    bumpMap.wrapT = THREE.RepeatWrapping;
+    bumpMap.repeat.set(2, 2);
+
+    return { map, roughnessMap, bumpMap };
+  }
+
+  private createPbrStackedStoneTextures(): {
+    map: THREE.CanvasTexture;
+    roughnessMap: THREE.CanvasTexture;
+    bumpMap: THREE.CanvasTexture;
+  } {
+    const w = 1024;
+    const h = 512;
+    const diffCanvas = document.createElement('canvas');
+    diffCanvas.width = w;
+    diffCanvas.height = h;
+    const dCtx = diffCanvas.getContext('2d')!;
+
+    const roughCanvas = document.createElement('canvas');
+    roughCanvas.width = w;
+    roughCanvas.height = h;
+    const rCtx = roughCanvas.getContext('2d')!;
+
+    const bumpCanvas = document.createElement('canvas');
+    bumpCanvas.width = w;
+    bumpCanvas.height = h;
+    const bCtx = bumpCanvas.getContext('2d')!;
+
+    dCtx.fillStyle = '#686055';
+    dCtx.fillRect(0, 0, w, h);
+    rCtx.fillStyle = '#cccccc';
+    rCtx.fillRect(0, 0, w, h);
+    bCtx.fillStyle = '#333333';
+    bCtx.fillRect(0, 0, w, h);
+
+    const rows = 8;
+    const rowH = h / rows;
+    for (let r = 0; r < rows; r++) {
+      const y = r * rowH;
+      let x = (r % 2 === 0 ? 0 : -35);
+      while (x < w) {
+        const blockW = 60 + ((r * 17 + x * 3) % 75);
+        const hue = 32 + ((r * 5 + x * 2) % 8);
+        const sat = 12 + ((r * 7 + x) % 15);
+        const lum = 48 + ((r * 11 + x * 4) % 22);
+
+        dCtx.fillStyle = `hsl(${hue}, ${sat}%, ${lum}%)`;
+        dCtx.fillRect(x + 2, y + 2, blockW - 4, rowH - 4);
+
+        dCtx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+        dCtx.fillRect(x + 2, y + 2, blockW - 4, 2);
+        dCtx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+        dCtx.fillRect(x + 2, y + rowH - 4, blockW - 4, 2);
+        dCtx.fillRect(x + blockW - 4, y + 2, 2, rowH - 4);
+
+        rCtx.fillStyle = '#bfbfbf';
+        rCtx.fillRect(x + 2, y + 2, blockW - 4, rowH - 4);
+
+        bCtx.fillStyle = '#999999';
+        bCtx.fillRect(x + 2, y + 2, blockW - 4, rowH - 4);
+        bCtx.fillStyle = '#e0e0e0';
+        bCtx.fillRect(x + 2, y + 2, blockW - 4, 2);
+
+        x += blockW;
+      }
+    }
+
+    const map = new THREE.CanvasTexture(diffCanvas);
+    map.wrapS = THREE.RepeatWrapping;
+    map.wrapT = THREE.RepeatWrapping;
+    map.repeat.set(3, 1);
+    map.colorSpace = THREE.SRGBColorSpace;
+
+    const roughnessMap = new THREE.CanvasTexture(roughCanvas);
+    roughnessMap.wrapS = THREE.RepeatWrapping;
+    roughnessMap.wrapT = THREE.RepeatWrapping;
+    roughnessMap.repeat.set(3, 1);
+
+    const bumpMap = new THREE.CanvasTexture(bumpCanvas);
+    bumpMap.wrapS = THREE.RepeatWrapping;
+    bumpMap.wrapT = THREE.RepeatWrapping;
+    bumpMap.repeat.set(3, 1);
+
+    return { map, roughnessMap, bumpMap };
+  }
+
+  private createStanding3DLettersTexture(): THREE.CanvasTexture {
     const canvas = document.createElement('canvas');
-    canvas.width = 512;
+    canvas.width = 4096;
     canvas.height = 512;
     const ctx = canvas.getContext('2d')!;
 
-    ctx.fillStyle = '#dfba8c';
-    ctx.fillRect(0, 0, 512, 512);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    for (let y = 0; y < 512; y += 32) {
-      ctx.fillStyle = 'rgba(180, 140, 95, 0.35)';
-      ctx.fillRect(0, y, 512, 2);
-      ctx.fillStyle = 'rgba(255, 240, 215, 0.2)';
-      ctx.fillRect(0, y + 2, 512, 1);
-    }
+    const text = 'CVR COLLEGE OF ENGINEERING';
+    const font = '900 205px "Arial Black", system-ui, sans-serif';
+    ctx.font = font;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.letterSpacing = '14px';
+
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+
+    // 1. Dark ambient occlusion / bevel shadow under & behind letters
+    ctx.fillStyle = '#0f172a';
+    ctx.fillText(text, cx, cy + 12);
+    ctx.fillStyle = '#1e293b';
+    ctx.fillText(text, cx + 4, cy + 6);
+
+    // 2. Stainless Steel Metallic Gradient Body
+    const grad = ctx.createLinearGradient(0, cy - 120, 0, cy + 120);
+    grad.addColorStop(0.0, '#ffffff');
+    grad.addColorStop(0.2, '#e2e8f0');
+    grad.addColorStop(0.48, '#94a3b8');
+    grad.addColorStop(0.52, '#cbd5e1');
+    grad.addColorStop(0.85, '#e2e8f0');
+    grad.addColorStop(1.0, '#64748b');
+
+    ctx.fillStyle = grad;
+    ctx.fillText(text, cx, cy);
+
+    // 3. Crisp white specular rim highlight
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 4;
+    ctx.strokeText(text, cx, cy);
+
+    // 4. Subtle metallic horizontal reflection sheen
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+    ctx.fillText(text, cx, cy - 4);
 
     const texture = new THREE.CanvasTexture(canvas);
-    texture.wrapS = THREE.RepeatWrapping;
-    texture.wrapT = THREE.RepeatWrapping;
-    texture.repeat.set(2, 4);
+    texture.colorSpace = THREE.SRGBColorSpace;
     return texture;
   }
 
-  private createEmblemTexture(): THREE.CanvasTexture {
+  private createPbrEmblemTexture(): THREE.CanvasTexture {
     const canvas = document.createElement('canvas');
-    canvas.width = 512;
-    canvas.height = 512;
+    canvas.width = 1024;
+    canvas.height = 1024;
     const ctx = canvas.getContext('2d')!;
 
-    ctx.clearRect(0, 0, 512, 512);
-
-    // Outer Navy Ring
+    const cx = 512, cy = 512;
+    // Outer drop shadow
     ctx.beginPath();
-    ctx.arc(256, 256, 230, 0, Math.PI * 2);
-    ctx.fillStyle = '#1e3a5f';
+    ctx.arc(cx, cy + 8, 480, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
     ctx.fill();
 
-    // Gold Accent Ring
+    // Gold Beveled Bezel
+    const goldGrad = ctx.createLinearGradient(0, 32, 1024, 992);
+    goldGrad.addColorStop(0, '#fef08a');
+    goldGrad.addColorStop(0.3, '#ca8a04');
+    goldGrad.addColorStop(0.7, '#eab308');
+    goldGrad.addColorStop(1, '#854d0e');
     ctx.beginPath();
-    ctx.arc(256, 256, 212, 0, Math.PI * 2);
-    ctx.lineWidth = 14;
-    ctx.strokeStyle = '#d4af37';
+    ctx.arc(cx, cy, 480, 0, Math.PI * 2);
+    ctx.fillStyle = goldGrad;
+    ctx.fill();
+
+    // Deep Navy Ring
+    ctx.beginPath();
+    ctx.arc(cx, cy, 430, 0, Math.PI * 2);
+    ctx.fillStyle = '#0f2744';
+    ctx.fill();
+
+    // Gold Beaded Accent Ring
+    ctx.beginPath();
+    ctx.arc(cx, cy, 360, 0, Math.PI * 2);
+    ctx.lineWidth = 10;
+    ctx.strokeStyle = '#eab308';
     ctx.stroke();
 
-    // Maroon Inner Disc
+    // Maroon Core Shield
+    const maroonGrad = ctx.createRadialGradient(cx, cy, 50, cx, cy, 350);
+    maroonGrad.addColorStop(0, '#991b1b');
+    maroonGrad.addColorStop(1, '#58111a');
     ctx.beginPath();
-    ctx.arc(256, 256, 196, 0, Math.PI * 2);
-    ctx.fillStyle = '#7a1c1c';
+    ctx.arc(cx, cy, 350, 0, Math.PI * 2);
+    ctx.fillStyle = maroonGrad;
     ctx.fill();
 
-    // Center Cream Core
-    ctx.beginPath();
-    ctx.arc(256, 256, 150, 0, Math.PI * 2);
-    ctx.fillStyle = '#fff4e0';
-    ctx.fill();
-
-    // Bold CVR Monogram
-    ctx.fillStyle = '#1e3a5f';
-    ctx.font = '900 120px "Arial Black", sans-serif';
+    // Inner Crest Details
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 36px "Arial Black", sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('CVR', 256, 246);
+    ctx.fillText('CVR', cx, cy - 60);
 
-    ctx.fillStyle = '#7a1c1c';
-    ctx.font = 'bold 28px sans-serif';
-    ctx.fillText('ESTD 2001', 256, 320);
+    ctx.fillStyle = '#fef08a';
+    ctx.font = 'bold 24px sans-serif';
+    ctx.fillText('COLLEGE OF ENGINEERING', cx, cy);
+    ctx.font = 'bold 20px sans-serif';
+    ctx.fillText('ESTD 2001', cx, cy + 50);
+
+    // Ribbon banner at bottom
+    ctx.fillStyle = '#ca8a04';
+    ctx.fillRect(cx - 220, cy + 120, 440, 48);
+    ctx.strokeStyle = '#fef08a';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(cx - 220, cy + 120, 440, 48);
+    ctx.fillStyle = '#0f172a';
+    ctx.font = 'bold 18px "Arial Black", sans-serif';
+    ctx.fillText('AN AUTONOMOUS INSTITUTION', cx, cy + 144);
 
     const texture = new THREE.CanvasTexture(canvas);
     texture.colorSpace = THREE.SRGBColorSpace;
@@ -392,29 +924,7 @@ export class CVRCampusMap {
     texture.wrapS = THREE.RepeatWrapping;
     texture.wrapT = THREE.RepeatWrapping;
     texture.repeat.set(16, 1);
-    return texture;
-  }
-
-  private createWoodGrainTexture(): THREE.CanvasTexture {
-    const canvas = document.createElement('canvas');
-    canvas.width = 256;
-    canvas.height = 512;
-    const ctx = canvas.getContext('2d')!;
-
-    ctx.fillStyle = '#4a3222';
-    ctx.fillRect(0, 0, 256, 512);
-
-    for (let y = 0; y < 512; y += 16) {
-      ctx.fillStyle = 'rgba(25, 15, 8, 0.45)';
-      ctx.fillRect(0, y, 256, 3);
-      ctx.fillStyle = 'rgba(120, 85, 60, 0.15)';
-      ctx.fillRect(0, y + 3, 256, 13);
-    }
-
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.wrapS = THREE.RepeatWrapping;
-    texture.wrapT = THREE.RepeatWrapping;
-    texture.repeat.set(1, 4);
+    texture.colorSpace = THREE.SRGBColorSpace;
     return texture;
   }
 
@@ -493,6 +1003,7 @@ export class CVRCampusMap {
     ctx.fillText('Report to Admin Block Room 102', 256, 290);
 
     const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
     return texture;
   }
 
@@ -515,6 +1026,7 @@ export class CVRCampusMap {
     ctx.fillText('BUS PARKING', 256, 128);
 
     const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
     return texture;
   }
 
@@ -545,6 +1057,7 @@ export class CVRCampusMap {
     texture.wrapS = THREE.RepeatWrapping;
     texture.wrapT = THREE.RepeatWrapping;
     texture.repeat.set(6, 4);
+    texture.colorSpace = THREE.SRGBColorSpace;
     return texture;
   }
 
@@ -563,55 +1076,244 @@ export class CVRCampusMap {
     roughCanvas.height = size;
     const rCtx = roughCanvas.getContext('2d')!;
 
-    dCtx.fillStyle = '#2f3238';
+    // Uniform weathered road base
+    dCtx.fillStyle = '#2d3036';
     dCtx.fillRect(0, 0, size, size);
 
-    rCtx.fillStyle = '#cccccc';
+    rCtx.fillStyle = '#b8b8b8';
     rCtx.fillRect(0, 0, size, size);
 
-    for (let i = 0; i < 4000; i++) {
+    // Natural asphalt aggregate and micro-gravel speckles (zero artificial directional stripes)
+    for (let i = 0; i < 18000; i++) {
       const px = Math.random() * size;
       const py = Math.random() * size;
-      const pr = Math.random() * 1.8 + 0.4;
-      const gray = Math.floor(Math.random() * 55) + 35;
-      dCtx.fillStyle = `rgb(${gray}, ${gray + 2}, ${gray + 5})`;
-      dCtx.beginPath();
-      dCtx.arc(px, py, pr, 0, Math.PI * 2);
-      dCtx.fill();
+      const pr = Math.random() * 1.6 + 0.3;
+      const gray = Math.floor(Math.random() * 65) + 30;
+      dCtx.fillStyle = `rgb(${gray}, ${gray + 1}, ${gray + 3})`;
+      dCtx.fillRect(px, py, pr, pr);
     }
 
-    const trackCenters = [240, 420, 600, 780];
-    trackCenters.forEach((cx) => {
-      const grad = dCtx.createLinearGradient(cx - 50, 0, cx + 50, 0);
-      grad.addColorStop(0, 'rgba(30, 32, 38, 0)');
-      grad.addColorStop(0.5, 'rgba(20, 22, 26, 0.4)');
-      grad.addColorStop(1, 'rgba(30, 32, 38, 0)');
-      dCtx.fillStyle = grad;
-      dCtx.fillRect(cx - 55, 0, 110, size);
-
-      const rGrad = rCtx.createLinearGradient(cx - 50, 0, cx + 50, 0);
-      rGrad.addColorStop(0, 'rgba(200, 200, 200, 0)');
-      rGrad.addColorStop(0.5, 'rgba(120, 120, 120, 0.55)');
-      rGrad.addColorStop(1, 'rgba(200, 200, 200, 0)');
-      rCtx.fillStyle = rGrad;
-      rCtx.fillRect(cx - 55, 0, 110, size);
-    });
+    // Subtle natural tonal wear patches
+    for (let p = 0; p < 75; p++) {
+      const cx = Math.random() * size;
+      const cy = Math.random() * size;
+      const rad = 20 + Math.random() * 70;
+      const darkPatch = dCtx.createRadialGradient(cx, cy, 2, cx, cy, rad);
+      darkPatch.addColorStop(0, Math.random() > 0.5 ? 'rgba(20, 22, 26, 0.16)' : 'rgba(60, 64, 72, 0.14)');
+      darkPatch.addColorStop(1, 'rgba(0,0,0,0)');
+      dCtx.fillStyle = darkPatch;
+      dCtx.beginPath();
+      dCtx.arc(cx, cy, rad, 0, Math.PI * 2);
+      dCtx.fill();
+    }
 
     const map = new THREE.CanvasTexture(diffuseCanvas);
     map.wrapS = THREE.RepeatWrapping;
     map.wrapT = THREE.RepeatWrapping;
-    map.repeat.set(3, 12);
+    map.repeat.set(6, 6);
     map.colorSpace = THREE.SRGBColorSpace;
 
     const roughnessMap = new THREE.CanvasTexture(roughCanvas);
     roughnessMap.wrapS = THREE.RepeatWrapping;
     roughnessMap.wrapT = THREE.RepeatWrapping;
-    roughnessMap.repeat.set(3, 12);
+    roughnessMap.repeat.set(6, 6);
 
     return { map, roughnessMap };
   }
 
-  // --- Helper Methods to Register Static Obstacles ---
+  private createForecourtPaverTextures(): {
+    map: THREE.CanvasTexture;
+    roughnessMap: THREE.CanvasTexture;
+    bumpMap: THREE.CanvasTexture;
+  } {
+    const size = 1024;
+    const diffCanvas = document.createElement('canvas');
+    diffCanvas.width = size;
+    diffCanvas.height = size;
+    const dCtx = diffCanvas.getContext('2d')!;
+
+    const roughCanvas = document.createElement('canvas');
+    roughCanvas.width = size;
+    roughCanvas.height = size;
+    const rCtx = roughCanvas.getContext('2d')!;
+
+    const bumpCanvas = document.createElement('canvas');
+    bumpCanvas.width = size;
+    bumpCanvas.height = size;
+    const bCtx = bumpCanvas.getContext('2d')!;
+
+    // Base warm grey mortar
+    dCtx.fillStyle = '#3a3834';
+    dCtx.fillRect(0, 0, size, size);
+    rCtx.fillStyle = '#f0f0f0';
+    rCtx.fillRect(0, 0, size, size);
+    bCtx.fillStyle = '#202020';
+    bCtx.fillRect(0, 0, size, size);
+
+    // 8 courses of Ashlar stone pavers matching target reference forecourt
+    const rows = 8;
+    const rowH = size / rows;
+    for (let r = 0; r < rows; r++) {
+      const cy = r * rowH;
+      let cx = (r % 2 === 0 ? 0 : -64);
+      while (cx < size) {
+        const stoneW = 120 + ((r * 37 + cx * 7) % 110);
+        const actualW = Math.min(stoneW, size - cx);
+        if (actualW > 8) {
+          // Warm earthy stone hues matching reference photo (#7e766c, #8c8378, #999084)
+          const hue = 32 + ((r * 11 + cx * 3) % 8);
+          const sat = 10 + ((r * 7 + cx * 5) % 8);
+          const lum = 46 + ((r * 13 + cx * 11) % 12 - 6);
+
+          const pad = 3; // 3px mortar joint
+          const sx = cx + pad;
+          const sy = cy + pad;
+          const sw = actualW - pad * 2;
+          const sh = rowH - pad * 2;
+
+          dCtx.fillStyle = `hsl(${hue}, ${sat}%, ${lum}%)`;
+          dCtx.fillRect(sx, sy, sw, sh);
+
+          rCtx.fillStyle = '#9e9e9e'; // base roughness ~0.62
+          rCtx.fillRect(sx, sy, sw, sh);
+
+          bCtx.fillStyle = '#808080';
+          bCtx.fillRect(sx, sy, sw, sh);
+
+          // Subtle mineral speckles on stone face
+          for (let sp = 0; sp < 18; sp++) {
+            const px = sx + Math.random() * sw;
+            const py = sy + Math.random() * sh;
+            const sLum = lum + (Math.random() > 0.5 ? 8 : -8);
+            dCtx.fillStyle = `hsl(${hue}, ${sat}%, ${sLum}%)`;
+            dCtx.fillRect(px, py, 2 + Math.random() * 3, 2 + Math.random() * 3);
+          }
+
+          // Top/Left beveled highlight
+          dCtx.fillStyle = 'rgba(255, 250, 240, 0.25)';
+          dCtx.fillRect(sx, sy, sw, 2);
+          dCtx.fillRect(sx, sy, 2, sh);
+          bCtx.fillStyle = '#a0a0a0';
+          bCtx.fillRect(sx, sy, sw, 2);
+          bCtx.fillRect(sx, sy, 2, sh);
+
+          // Bottom/Right shadow bevel
+          dCtx.fillStyle = 'rgba(20, 18, 15, 0.35)';
+          dCtx.fillRect(sx, sy + sh - 2, sw, 2);
+          dCtx.fillRect(sx + sw - 2, sy, 2, sh);
+          bCtx.fillStyle = '#404040';
+          bCtx.fillRect(sx, sy + sh - 2, sw, 2);
+          bCtx.fillRect(sx + sw - 2, sy, 2, sh);
+        }
+        cx += stoneW;
+      }
+    }
+
+    const map = new THREE.CanvasTexture(diffCanvas);
+    map.wrapS = THREE.RepeatWrapping;
+    map.wrapT = THREE.RepeatWrapping;
+    map.repeat.set(6, 3);
+    map.colorSpace = THREE.SRGBColorSpace;
+
+    const roughnessMap = new THREE.CanvasTexture(roughCanvas);
+    roughnessMap.wrapS = THREE.RepeatWrapping;
+    roughnessMap.wrapT = THREE.RepeatWrapping;
+    roughnessMap.repeat.set(6, 3);
+
+    const bumpMap = new THREE.CanvasTexture(bumpCanvas);
+    bumpMap.wrapS = THREE.RepeatWrapping;
+    bumpMap.wrapT = THREE.RepeatWrapping;
+    bumpMap.repeat.set(6, 3);
+
+    return { map, roughnessMap, bumpMap };
+  }
+
+  // --- Helper Methods to Batch & Register Static Obstacles ---
+
+  private enqueueStaticGeometry(
+    geo: THREE.BufferGeometry,
+    mat: THREE.Material,
+    castShadow: boolean,
+    receiveShadow: boolean,
+    matrix?: THREE.Matrix4
+  ): void {
+    if (matrix) {
+      geo.applyMatrix4(matrix);
+    }
+    const key = `${mat.uuid}_${castShadow ? 1 : 0}_${receiveShadow ? 1 : 0}`;
+    let bucket = this.staticBatches.get(key);
+    if (!bucket) {
+      bucket = { mat, castShadow, receiveShadow, geos: [] };
+      this.staticBatches.set(key, bucket);
+    }
+    bucket.geos.push(geo);
+  }
+
+  private flushStaticBatches(): void {
+    for (const bucket of this.staticBatches.values()) {
+      const { mat, castShadow, receiveShadow, geos } = bucket;
+      if (geos.length === 0) continue;
+
+      if (geos.length === 1) {
+        const mesh = new THREE.Mesh(geos[0], mat);
+        mesh.castShadow = castShadow;
+        mesh.receiveShadow = receiveShadow;
+        this.group.add(mesh);
+        this.disposables.push(geos[0]);
+        continue;
+      }
+
+      const hasIndexed = geos.some((g) => g.index !== null);
+      const hasNonIndexed = geos.some((g) => g.index === null);
+      const prepared = geos.map((g) => {
+        let out = g;
+        if (hasIndexed && hasNonIndexed && g.index !== null) {
+          out = g.toNonIndexed();
+          g.dispose();
+        }
+        // Keep a consistent attribute set (position, normal, uv)
+        for (const attrName of Object.keys(out.attributes)) {
+          if (attrName !== 'position' && attrName !== 'normal' && attrName !== 'uv') {
+            out.deleteAttribute(attrName);
+          }
+        }
+        return out;
+      });
+
+      const merged = mergeGeometries(prepared, false);
+      prepared.forEach((g) => g.dispose());
+
+      if (merged) {
+        merged.computeBoundingSphere();
+        const mesh = new THREE.Mesh(merged, mat);
+        mesh.castShadow = castShadow;
+        mesh.receiveShadow = receiveShadow;
+        this.group.add(mesh);
+        this.disposables.push(merged);
+      }
+    }
+    this.staticBatches.clear();
+  }
+
+  private isGroundOrFlatMaterial(mat: THREE.Material): boolean {
+    return (
+      mat === this.materials.grass ||
+      mat === this.materials.grassLawn ||
+      mat === this.materials.sandSoil ||
+      mat === this.materials.avenueConcrete ||
+      mat === this.materials.concrete ||
+      mat === this.materials.asphalt ||
+      mat === this.materials.highwayAsphalt ||
+      mat === this.materials.forecourtPavers ||
+      mat === this.materials.roadMarking ||
+      mat === this.materials.windowGlass ||
+      mat === this.materials.solarPanel ||
+      mat === this.materials.courtRed ||
+      mat === this.materials.courtGreen ||
+      mat === this.materials.cricketPitch ||
+      mat === this.materials.curbStripe
+    );
+  }
 
   private addBox(
     x: number,
@@ -624,23 +1326,22 @@ export class CVRCampusMap {
     rotY = 0,
     hasCollision = true,
     rotX = 0,
-    rotZ = 0
-  ): THREE.Mesh {
+    rotZ = 0,
+    castShadow?: boolean
+  ): void {
     const geo = new THREE.BoxGeometry(w, h, d);
-    this.disposables.push(geo);
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.set(x, y, z);
-    if (rotY !== 0) mesh.rotation.y = rotY;
-    if (rotX !== 0) mesh.rotation.x = rotX;
-    if (rotZ !== 0) mesh.rotation.z = rotZ;
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    this.group.add(mesh);
+    this.batchObj.position.set(x, y, z);
+    this.batchObj.rotation.set(rotX, rotY, rotZ);
+    this.batchObj.scale.set(1, 1, 1);
+    this.batchObj.updateMatrix();
+
+    const shouldCast = castShadow ?? (h > 0.4 && !this.isGroundOrFlatMaterial(mat));
+    const shouldReceive = mat !== this.materials.windowGlass && mat !== this.materials.roadMarking;
+    this.enqueueStaticGeometry(geo, mat, shouldCast, shouldReceive, this.batchObj.matrix);
 
     if (hasCollision) {
       this.physics.createStaticBox(x, y, z, w, h, d, rotY);
     }
-    return mesh;
   }
 
   private addCylinder(
@@ -650,20 +1351,23 @@ export class CVRCampusMap {
     radius: number,
     height: number,
     mat: THREE.Material,
-    hasCollision = true
-  ): THREE.Mesh {
-    const geo = new THREE.CylinderGeometry(radius, radius, height, 16);
-    this.disposables.push(geo);
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.set(x, y, z);
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    this.group.add(mesh);
+    hasCollision = true,
+    rotX = 0,
+    rotY = 0,
+    rotZ = 0
+  ): void {
+    const geo = new THREE.CylinderGeometry(radius, radius, height, 12);
+    this.batchObj.position.set(x, y, z);
+    this.batchObj.rotation.set(rotX, rotY, rotZ);
+    this.batchObj.scale.set(1, 1, 1);
+    this.batchObj.updateMatrix();
+
+    const shouldCast = height > 0.4 && radius > 0.1;
+    this.enqueueStaticGeometry(geo, mat, shouldCast, true, this.batchObj.matrix);
 
     if (hasCollision) {
       this.physics.createStaticCylinder(x, y, z, height, radius);
     }
-    return mesh;
   }
 
   private createRoad(
@@ -672,58 +1376,230 @@ export class CVRCampusMap {
     width: number,
     length: number,
     rotY = 0,
-    mat: THREE.Material = this.materials.asphalt
+    mat: THREE.Material = this.materials.asphalt,
+    _hasMarking = false
   ): void {
     const geo = new THREE.PlaneGeometry(width, length);
-    this.disposables.push(geo);
-    const road = new THREE.Mesh(geo, mat);
-    road.rotation.x = -Math.PI / 2;
-    if (rotY !== 0) road.rotation.z = -rotY;
-    road.position.set(x, 0.015, z);
-    road.receiveShadow = true;
-    this.group.add(road);
+    this.batchObj.position.set(x, 0.015, z);
+    this.batchObj.rotation.set(-Math.PI / 2, 0, -rotY);
+    this.batchObj.scale.set(1, 1, 1);
+    this.batchObj.updateMatrix();
+    this.enqueueStaticGeometry(geo, mat, false, true, this.batchObj.matrix);
 
     // Dashed center line
     const dashes = Math.floor((length - 4) / 7);
+    const sin = Math.sin(rotY);
+    const cos = Math.cos(rotY);
     for (let i = 0; i < dashes; i++) {
       const offset = -length / 2 + 3.5 + i * 7;
       const dashGeo = new THREE.PlaneGeometry(0.32, 3.5);
-      this.disposables.push(dashGeo);
-      const dash = new THREE.Mesh(dashGeo, this.materials.roadMarking);
-      dash.rotation.x = -Math.PI / 2;
       if (rotY === 0) {
-        dash.position.set(x, 0.02, z + offset);
+        this.batchObj.position.set(x, 0.02, z + offset);
+        this.batchObj.rotation.set(-Math.PI / 2, 0, 0);
       } else {
-        const sin = Math.sin(rotY);
-        const cos = Math.cos(rotY);
-        dash.rotation.z = -rotY;
-        dash.position.set(x - offset * sin, 0.02, z + offset * cos);
+        this.batchObj.position.set(x - offset * sin, 0.02, z + offset * cos);
+        this.batchObj.rotation.set(-Math.PI / 2, 0, -rotY);
       }
-      this.group.add(dash);
+      this.batchObj.scale.set(1, 1, 1);
+      this.batchObj.updateMatrix();
+      this.enqueueStaticGeometry(dashGeo, this.materials.roadMarking, false, false, this.batchObj.matrix);
     }
+  }
+
+  private createBusAtlases(): {
+    frontTex: THREE.CanvasTexture;
+    sideTex: THREE.CanvasTexture;
+    getFrontRect: (busNumber: number) => [number, number, number, number];
+    getSideRect: (busNumber: number) => [number, number, number, number];
+  } {
+    const cols = 8;
+    const rows = 8;
+
+    // Front number plate atlas: 8x8 grid of 128x64 cells (1024x512)
+    const frontW = 1024;
+    const frontH = 512;
+    const fCellW = frontW / cols;
+    const fCellH = frontH / rows;
+    const frontCanvas = document.createElement('canvas');
+    frontCanvas.width = frontW;
+    frontCanvas.height = frontH;
+    const fCtx = frontCanvas.getContext('2d')!;
+    fCtx.fillStyle = '#ffffff';
+    fCtx.fillRect(0, 0, frontW, frontH);
+
+    // Side livery atlas: 8x8 grid of 256x64 cells (2048x512)
+    const sideW = 2048;
+    const sideH = 512;
+    const sCellW = sideW / cols;
+    const sCellH = sideH / rows;
+    const sideCanvas = document.createElement('canvas');
+    sideCanvas.width = sideW;
+    sideCanvas.height = sideH;
+    const sCtx = sideCanvas.getContext('2d')!;
+    sCtx.fillStyle = '#ca8a04';
+    sCtx.fillRect(0, 0, sideW, sideH);
+
+    for (let busNum = 2; busNum <= 60; busNum++) {
+      const slot = busNum - 2; // 0..58
+      const col = slot % cols;
+      const row = Math.floor(slot / cols);
+      const numStr = busNum < 10 ? '0' + busNum : '' + busNum;
+
+      // Draw front plate cell
+      const fx = col * fCellW;
+      const fy = row * fCellH;
+      fCtx.fillStyle = '#ffffff';
+      fCtx.fillRect(fx, fy, fCellW, fCellH);
+      fCtx.strokeStyle = '#000000';
+      fCtx.lineWidth = 3;
+      fCtx.strokeRect(fx + 3, fy + 3, fCellW - 6, fCellH - 6);
+      fCtx.fillStyle = '#000000';
+      fCtx.font = '900 34px "Arial Black", sans-serif';
+      fCtx.textAlign = 'center';
+      fCtx.textBaseline = 'middle';
+      fCtx.fillText(numStr, fx + fCellW / 2, fy + fCellH / 2);
+
+      // Draw side livery cell
+      const sx = col * sCellW;
+      const sy = row * sCellH;
+      sCtx.fillStyle = '#ca8a04';
+      sCtx.fillRect(sx, sy, sCellW, sCellH);
+      sCtx.fillStyle = '#7f1d1d';
+      sCtx.fillRect(sx, sy + sCellH * 0.75, sCellW, sCellH * 0.25);
+      sCtx.fillStyle = '#ffffff';
+      sCtx.font = 'bold 18px sans-serif';
+      sCtx.textAlign = 'center';
+      sCtx.textBaseline = 'middle';
+      sCtx.fillText('CVR COLLEGE BUS ' + numStr, sx + sCellW / 2, sy + sCellH * 0.375);
+    }
+
+    const frontTex = new THREE.CanvasTexture(frontCanvas);
+    frontTex.minFilter = THREE.LinearMipmapLinearFilter;
+    frontTex.anisotropy = 4;
+    const sideTex = new THREE.CanvasTexture(sideCanvas);
+    sideTex.minFilter = THREE.LinearMipmapLinearFilter;
+    sideTex.anisotropy = 4;
+    this.disposables.push(frontTex, sideTex);
+
+    const makeRectGetter = (texW: number, texH: number, cellW: number, cellH: number) => {
+      const padU = 1.5 / texW;
+      const padV = 1.5 / texH;
+      return (busNumber: number): [number, number, number, number] => {
+        const slot = busNumber - 2;
+        const col = slot % cols;
+        const row = Math.floor(slot / cols);
+        // CanvasTexture has flipY = true: row 0 is at top (v near 1.0)
+        const uOffset = col / cols + padU;
+        const vOffset = (rows - 1 - row) / rows + padV;
+        const uScale = cellW / texW - 2 * padU;
+        const vScale = cellH / texH - 2 * padV;
+        return [uOffset, vOffset, uScale, vScale];
+      };
+    };
+
+    return {
+      frontTex,
+      sideTex,
+      getFrontRect: makeRectGetter(frontW, frontH, fCellW, fCellH),
+      getSideRect: makeRectGetter(sideW, sideH, sCellW, sCellH),
+    };
+  }
+
+  private createBusAtlasMaterial(tex: THREE.CanvasTexture, key: string): THREE.MeshStandardMaterial {
+    const mat = new THREE.MeshStandardMaterial({
+      map: tex,
+      roughness: 0.48,
+      metalness: 0.05,
+    });
+    mat.customProgramCacheKey = () => `${key}_lit_v1`;
+    mat.onBeforeCompile = (shader) => {
+      shader.vertexShader = `
+        attribute vec4 aAtlasRect;
+      ` + shader.vertexShader;
+      shader.vertexShader = shader.vertexShader.replace(
+        '#include <uv_vertex>',
+        `
+        #include <uv_vertex>
+        #ifdef USE_MAP
+          vMapUv = vMapUv * aAtlasRect.zw + aAtlasRect.xy;
+        #endif
+        `
+      );
+    };
+    this.disposables.push(mat);
+    return mat;
+  }
+
+  private createCampusSignMaterial(
+    tex: THREE.Texture,
+    transparent = false,
+    nightGlowScale = 0.24
+  ): THREE.MeshStandardMaterial {
+    const mat = new THREE.MeshStandardMaterial({
+      map: tex,
+      emissiveMap: tex,
+      emissive: new THREE.Color(0xfff4de),
+      emissiveIntensity: 0,
+      roughness: 0.42,
+      metalness: 0.06,
+      transparent,
+      side: THREE.DoubleSide,
+    });
+    this.disposables.push(mat);
+    this.signEmissiveMats.push({ mat, scale: nightGlowScale });
+    return mat;
+  }
+
+  private createDirectionalSignTexture(title: string, subtitle?: string, arrow: string = '➔'): THREE.CanvasTexture {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1024;
+    canvas.height = 320;
+    const ctx = canvas.getContext('2d')!;
+
+    ctx.fillStyle = '#1e3a8a';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 10;
+    ctx.strokeRect(16, 16, canvas.width - 32, canvas.height - 32);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 64px "Arial Black", system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`${title}  ${arrow}`, canvas.width / 2, subtitle ? 110 : 160);
+
+    if (subtitle) {
+      ctx.fillStyle = '#93c5fd';
+      ctx.font = 'bold 36px system-ui, sans-serif';
+      ctx.fillText(subtitle, canvas.width / 2, 210);
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    this.disposables.push(texture);
+    return texture;
   }
 
   private buildZebraCrosswalk(centerX: number, centerZ: number, widthX: number, depthZ: number, rotY = 0): void {
     const stripeCount = 8;
     const stripeWidth = 0.65;
     const spacing = depthZ / (stripeCount + 1);
+    const sin = Math.sin(rotY);
+    const cos = Math.cos(rotY);
 
     for (let i = 1; i <= stripeCount; i++) {
       const offset = -depthZ / 2 + i * spacing;
       const stripeGeo = new THREE.PlaneGeometry(widthX, stripeWidth);
-      this.disposables.push(stripeGeo);
-      const stripe = new THREE.Mesh(stripeGeo, this.materials.roadMarking);
-      stripe.rotation.x = -Math.PI / 2;
-      if (rotY !== 0) stripe.rotation.z = -rotY;
+      this.batchObj.rotation.set(-Math.PI / 2, 0, -rotY);
       if (rotY === 0) {
-        stripe.position.set(centerX, 0.022, centerZ + offset);
+        this.batchObj.position.set(centerX, 0.022, centerZ + offset);
       } else {
-        const sin = Math.sin(rotY);
-        const cos = Math.cos(rotY);
-        stripe.position.set(centerX - offset * sin, 0.022, centerZ + offset * cos);
+        this.batchObj.position.set(centerX - offset * sin, 0.022, centerZ + offset * cos);
       }
-      stripe.receiveShadow = true;
-      this.group.add(stripe);
+      this.batchObj.scale.set(1, 1, 1);
+      this.batchObj.updateMatrix();
+      this.enqueueStaticGeometry(stripeGeo, this.materials.roadMarking, false, true, this.batchObj.matrix);
     }
   }
 
@@ -742,29 +1618,203 @@ export class CVRCampusMap {
     // Static physics ground collider (covers 420m at y = -0.5)
     this.physics.createStaticBox(0, -0.5, 0, 420, 1.0, 420);
 
-    // North Approach Highway (z = -175, width 14m, length 420m, runs E-W)
-    this.createRoad(0, -175, 14, 420, Math.PI / 2, this.materials.highwayAsphalt);
+    // North Approach Highway (z = -193.0, width 14m, length 420m, runs E-W: z in [-200.0, -186.0])
+    this.createRoad(0, -193.0, 14.0, 420.0, Math.PI / 2, this.materials.highwayAsphalt);
 
-    // 1. Central 12M North-South Spine (x = 25, width 12m, runs from Highway z = -175 through Main Gate z = -160 to z = 115, length 290m)
-    this.createRoad(25, -30, 12, 290, 0);
-    // Yellow-black curbs along the 12m spine
-    this.addBox(18.8, 0.17, -30, 0.45, 0.35, 290, this.materials.curbStripe, 0);
-    this.addBox(31.2, 0.17, -30, 0.45, 0.35, 290, this.materials.curbStripe, 0);
+    // Highway North Gravel Shoulder (z = -201.5, width 3.0m: z in [-203.0, -200.0])
+    this.createRoad(0, -201.5, 3.0, 420.0, Math.PI / 2, this.materials.sandSoil, false);
 
-    // 2. North Landscape Loop Road (z = -138, width 12m, runs East from x = 25 to 132, length 107m)
-    this.createRoad(78.5, -138, 12, 107, Math.PI / 2);
+    // 1. Central Entrance & Approach Carriageway
+    // 1a. Grand Entrance Forecourt Plaza (z = -186.0 to -172.0, length 14.0m, center z = -179.0)
+    // Continuous wide paved Ashlar stone paver plaza in front of Pedestrian Gate, Sandstone Monument and Main Gate (x = 6.7 to 42.3, width 35.6m, center x = 24.5)
+    this.createRoad(24.5, -179.0, 35.6, 14.0, 0, this.materials.forecourtPavers, false);
+
+    // Natural Soil / Compacted Earth Roadside Verges outside compound walls along highway (z = -186.0 to -172.0, length 14.0m, center z = -179.0)
+    this.createRoad(-108.75, -179.0, 202.5, 14.0, 0, this.materials.sandSoil, false); // West of bus exit: x = -210 to -7.5
+    this.createRoad(3.35, -179.0, 6.7, 14.0, 0, this.materials.sandSoil, false);      // Cabin frontage: x = 0.0 to 6.7
+    this.createRoad(126.15, -179.0, 167.7, 14.0, 0, this.materials.sandSoil, false);  // East of main gate: x = 42.3 to 210.0
+
+    // Outer Plaza Curbs defining entrance forecourt boundary (z = -186.0 to -172.0)
+    this.addBox(6.6, 0.17, -179.0, 0.35, 0.35, 14.0, this.materials.curbStripe, 0);
+    this.addBox(42.3, 0.17, -179.0, 0.35, 0.35, 14.0, this.materials.curbStripe, 0);
+
+    // 1b. Long Divided Entrance Road Section (Approved Layout: z = -172.0 to -115.0, length 57.0m, center z = -143.5)
+    // West Paved Path (width 4.95m, center x = 21.5, z = -172.0 to -115.0)
+    this.createRoad(21.5, -143.5, 4.95, 57.0, 0, this.materials.avenueConcrete, false);
+    // East Paved Path (width 4.95m, center x = 28.5, z = -172.0 to -115.0)
+    this.createRoad(28.5, -143.5, 4.95, 57.0, 0, this.materials.avenueConcrete, false);
+
+    // Outer Yellow-Black Striped Curbs along entrance corridor
+    // West Outer Curb (Continuous along avenue: x = 18.8, z = -172.0 to -115.0, length 57.0m)
+    this.addBox(18.8, 0.17, -143.5, 0.45, 0.35, 57.0, this.materials.curbStripe, 0);
+
+    // East Outer Curb: North of First Bus Bay Connection (x = 31.2, z = -172.0 to -144.0, length 28.0m, center z = -158.0)
+    this.addBox(31.2, 0.17, -158.0, 0.45, 0.35, 28.0, this.materials.curbStripe, 0);
+    // East Outer Curb: South of First Bus Bay Connection to Junction (x = 31.2, z = -132.0 to -115.0, length 17m, center z = -123.5)
+    this.addBox(31.2, 0.17, -123.5, 0.45, 0.35, 17.0, this.materials.curbStripe, 0);
+
+    // Central Narrow Landscaped Divider: Segment 1 (North of First Connection: z = -171.2 to -144.0, length 27.2m, center z = -157.6)
+    this.addBox(24.1, 0.17, -157.6, 0.35, 0.35, 27.2, this.materials.curbStripe, 0);
+    this.addBox(25.9, 0.17, -157.6, 0.35, 0.35, 27.2, this.materials.curbStripe, 0);
+    this.addBox(25.0, 0.17, -171.2, 2.15, 0.35, 0.35, this.materials.curbStripe, 0);
+    this.addBox(25.0, 0.17, -144.0, 2.15, 0.35, 0.35, this.materials.curbStripe, 0);
+    this.addBox(25.0, 0.08, -157.6, 1.5, 0.16, 26.8, this.materials.grassLawn, 0, false);
+    for (const sz of [-166.0, -158.0, -150.0]) {
+      this.instancedShrubs.push({ x: 25.0, y: 0.35, z: sz, scale: 1.0, matType: 'shrub' });
+    }
+
+    // 1c. FIRST LEFT CONNECTION: Drivable Entrance into Bus Bay (z = -144.0 to -132.0, length 12.0m, center z = -138.0)
+    // Clear broad turning cut across central divider and East curb
+    this.createRoad(25.0, -138.0, 2.2, 12.0, 0, this.materials.avenueConcrete, false);
+    // Paved connection road branching East into Bus Bay central aisle (x = 31.0 to 46.0, length 15m, center x = 38.5)
+    this.createRoad(38.5, -138.0, 10.0, 15.0, Math.PI / 2, this.materials.asphalt, false);
+    this.addBox(38.5, 0.17, -143.2, 15.0, 0.35, 0.45, this.materials.curbStripe, 0);
+    this.addBox(38.5, 0.17, -132.8, 15.0, 0.35, 0.45, this.materials.curbStripe, 0);
+
+    // Central Narrow Landscaped Divider: Segment 2 (South of First Connection: z = -132.0 to -115.0, length 17.0m, center z = -123.5)
+    this.addBox(24.1, 0.17, -123.5, 0.35, 0.35, 17.0, this.materials.curbStripe, 0);
+    this.addBox(25.9, 0.17, -123.5, 0.35, 0.35, 17.0, this.materials.curbStripe, 0);
+    this.addBox(25.0, 0.17, -132.0, 2.15, 0.35, 0.35, this.materials.curbStripe, 0);
+    this.addBox(25.0, 0.17, -115.0, 2.15, 0.35, 0.35, this.materials.curbStripe, 0);
+    this.addBox(25.0, 0.08, -123.5, 1.5, 0.16, 16.6, this.materials.grassLawn, 0, false);
+    for (const sz of [-127.0, -120.0]) {
+      this.instancedShrubs.push({ x: 25.0, y: 0.35, z: sz, scale: 1.0, matType: 'shrub' });
+    }
+
+    // 1d. ROUND INNER CAMPUS JUNCTION (z = -115.0 to -105.0, center z = -110.0, length 10.0m)
+    // Full open carriageway throat connecting Avenue, Bus Bay, PG Block Road, and Continuing Parallel Roads
+    this.createRoad(25.0, -110.0, 12.4, 10.0, 0, this.materials.avenueConcrete, false);
+
+    // LEFT JUNCTION: Second Bus Bay Connection (South Circulation Road: z = -110.0, width 10m, runs East from x = 31.2 to 148.0, length 116.8m, center x = 89.6)
+    this.createRoad(89.6, -110.0, 10.0, 116.8, Math.PI / 2, this.materials.asphalt, false);
+    this.addBox(89.6, 0.17, -115.2, 116.8, 0.35, 0.45, this.materials.curbStripe, 0);
+    this.addBox(89.6, 0.17, -104.8, 116.8, 0.35, 0.45, this.materials.curbStripe, 0);
+
+    // RIGHT JUNCTION: PG Block Access Road (z = -110.0, width 9m, runs West from x = 18.8 to -85.0, length 103.8m, center x = -33.1)
+    this.createRoad(-33.1, -110.0, 9.0, 103.8, Math.PI / 2, this.materials.asphalt, false);
+    this.addBox(-33.1, 0.17, -114.7, 103.8, 0.35, 0.45, this.materials.curbStripe, 0);
+    this.addBox(-33.1, 0.17, -105.3, 103.8, 0.35, 0.45, this.materials.curbStripe, 0);
+
+    // ROUNDABOUT MEDIAN ISLAND IN INNER JUNCTION (Center: x = 25.0, z = -110.0, radius 3.2m)
+    // Curved/faceted black-yellow striped circular curb
+    const islandSegments = 16;
+    const islandRadius = 3.2;
+    for (let is = 0; is < islandSegments; is++) {
+      const a1 = (is / islandSegments) * Math.PI * 2;
+      const a2 = ((is + 1) / islandSegments) * Math.PI * 2;
+      const mx = 25.0 + Math.cos((a1 + a2) / 2) * islandRadius;
+      const mz = -110.0 + Math.sin((a1 + a2) / 2) * islandRadius;
+      const curL = 2 * islandRadius * Math.sin(Math.PI / islandSegments);
+      const ang = Math.atan2(Math.sin((a1 + a2) / 2), Math.cos((a1 + a2) / 2));
+      this.addBox(mx, 0.17, mz, 0.35, 0.35, curL, this.materials.curbStripe, -ang);
+    }
+    // Grass center for round island
+    this.batchObj.position.set(25.0, 0.08, -110.0);
+    this.batchObj.rotation.set(0, 0, 0);
+    this.batchObj.scale.set(1, 1, 1);
+    this.batchObj.updateMatrix();
+    this.enqueueStaticGeometry(
+      new THREE.CylinderGeometry(islandRadius - 0.2, islandRadius - 0.2, 0.15, 16),
+      this.materials.grassLawn,
+      false,
+      true,
+      this.batchObj.matrix
+    );
+
+    // Iconic Yellow Median Dustbin in center of Round Inner Junction (Per Reference Photo 8)
+    this.batchObj.position.set(25.0, 0.55, -110.0);
+    this.batchObj.updateMatrix();
+    this.enqueueStaticGeometry(new THREE.CylinderGeometry(0.38, 0.34, 0.85, 12), this.materials.busYellow, true, true, this.batchObj.matrix);
+    this.batchObj.position.set(25.0, 0.97, -110.0);
+    this.batchObj.updateMatrix();
+    this.enqueueStaticGeometry(new THREE.SphereGeometry(0.38, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), this.materials.busYellow, true, true, this.batchObj.matrix);
+    this.batchObj.position.set(25.0, 0.20, -110.0);
+    this.batchObj.updateMatrix();
+    this.enqueueStaticGeometry(new THREE.CylinderGeometry(0.04, 0.04, 0.35, 8), this.materials.ironGateBlack, false, true, this.batchObj.matrix);
+
+    // Green recycling bin beside yellow bin
+    this.batchObj.position.set(26.2, 0.50, -110.0);
+    this.batchObj.updateMatrix();
+    this.enqueueStaticGeometry(new THREE.CylinderGeometry(0.32, 0.28, 0.75, 10), this.materials.hedgeGreen, true, true, this.batchObj.matrix);
+
+    // Directional Blue Signs at Round Inner Junction
+    const juncSignTex = this.createDirectionalSignTexture('BUS BAY ➔', 'CIRCULATION & EXIT', '➔');
+    const juncSignMesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(2.4, 0.75),
+      this.createCampusSignMaterial(juncSignTex, false, 0.22)
+    );
+    juncSignMesh.position.set(23.8, 1.8, -111.0);
+    juncSignMesh.rotation.y = -Math.PI / 6;
+    this.group.add(juncSignMesh);
+
+    const pgSignTex = this.createDirectionalSignTexture('PG BLOCK ➔', 'RESEARCH WING', '➔');
+    const pgSignMesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(2.4, 0.75),
+      this.createCampusSignMaterial(pgSignTex, false, 0.22)
+    );
+    pgSignMesh.position.set(23.8, 1.8, -109.0);
+    pgSignMesh.rotation.y = Math.PI / 6;
+    this.group.add(pgSignMesh);
+
+    // 1e. CONTINUOUS STRAIGHT PEDESTRIAN WALKWAY FROM SMALL GATE
+    // Directly connects Small Gate (x = 8.0, z = -172.0) straight to PG Block Road (z = -110.0)
+    // Separate from vehicle lanes; width 2.4m (x in [6.8, 9.2], center x = 8.0), length 62.0m (z = -172.0 to -110.0, center z = -141.0)
+    // Raised elevation y = 0.15m (height 0.15m, center y = 0.075m)
+    this.addBox(8.0, 0.075, -141.0, 2.4, 0.15, 62.0, this.materials.avenueConcrete, 0, false);
+    // Concrete borders along pedestrian walkway
+    this.addBox(6.7, 0.12, -141.0, 0.20, 0.20, 62.0, this.materials.concreteBorder, 0, false);
+    this.addBox(9.3, 0.12, -141.0, 0.20, 0.20, 62.0, this.materials.concreteBorder, 0, false);
+
+    // Pedestrian zebra crosswalk across PG Block Road connecting straight walkway into campus (x = 8.0, z = -110.0, width 3.0m, length 9.0m)
+    this.buildZebraCrosswalk(8.0, -110.0, 3.0, 9.0);
+
+    // 1f. BEYOND THE JUNCTION: CONTINUING PARALLEL ROADS (z = -105.0 to -40.0, length 65.0m, center z = -72.5)
+    // West Paved Path (width 4.95m, center x = 21.5, z = -105.0 to -40.0)
+    this.createRoad(21.5, -72.5, 4.95, 65.0, 0, this.materials.avenueConcrete, false);
+    // East Paved Path (width 4.95m, center x = 28.5, z = -105.0 to -40.0)
+    this.createRoad(28.5, -72.5, 4.95, 65.0, 0, this.materials.avenueConcrete, false);
+
+    // Outer Yellow-Black Striped Curbs along continuing roads
+    this.addBox(18.8, 0.17, -72.5, 0.45, 0.35, 65.0, this.materials.curbStripe, 0);
+    this.addBox(31.2, 0.17, -72.5, 0.45, 0.35, 65.0, this.materials.curbStripe, 0);
+
+    // Central Narrow Landscaped Divider along continuing roads (z = -105.0 to -40.0, length 65.0m, center z = -72.5)
+    this.addBox(24.1, 0.17, -72.5, 0.35, 0.35, 65.0, this.materials.curbStripe, 0);
+    this.addBox(25.9, 0.17, -72.5, 0.35, 0.35, 65.0, this.materials.curbStripe, 0);
+    this.addBox(25.0, 0.17, -105.0, 2.15, 0.35, 0.35, this.materials.curbStripe, 0);
+    this.addBox(25.0, 0.17, -40.0, 2.15, 0.35, 0.35, this.materials.curbStripe, 0);
+    this.addBox(25.0, 0.08, -72.5, 1.5, 0.16, 64.0, this.materials.grassLawn, 0, false);
+    for (let mz = -102; mz <= -44; mz += 5.5) {
+      this.instancedShrubs.push({ x: 25.0, y: 0.35, z: mz, scale: 1.0, matType: 'shrub' });
+    }
+
+    // Direct Paved Walkway & Crosswalk into Main Building East Portico (Facing avenue at x = 18.8, z = -75.0)
+    this.createRoad(16.5, -75.0, 4.6, 12.0, Math.PI / 2, this.materials.avenueConcrete, false);
+    this.buildZebraCrosswalk(25.0, -75.0, 11.5, 4.0); // Crossing parallel roads into Main Building Portico
+
+    // West Parkway Lawn (between Avenue West curb x = 18.8 and Bus Driveway East curb x = 0.4: width 18.4m, center x = 9.6, z = -172 to -115)
+    this.addBox(9.6, 0.02, -143.5, 18.4, 0.04, 57.0, this.materials.grassLawn, 0, false);
+
+    // Terracotta Seating Retaining Wall along western curb of avenue (x = 18.0, z = -168.0 to -118.0, length 50m)
+    this.addBox(18.0, 0.225, -143.0, 0.40, 0.45, 50.0, this.materials.maroonWall, 0, true);
+    this.addBox(18.0, 0.49, -143.0, 0.50, 0.08, 50.2, this.materials.concreteBorder, 0, true);
+
+    // East Parkway Lawn buffer between avenue curb and Bus Bay (x: 31.5 to 34.0, z: -172 to -115)
+    this.addBox(32.75, 0.02, -143.5, 2.5, 0.04, 57.0, this.materials.grassLawn, 0, false);
+
+    // 1g. South Campus Core Avenue (z = -40 to 115, length 155m, center z = 37.5)
+    this.createRoad(25, 37.5, 12, 155, 0, this.materials.asphalt, true);
+    this.addBox(18.8, 0.17, 37.5, 0.45, 0.35, 155, this.materials.curbStripe, 0);
+    this.addBox(31.2, 0.17, 37.5, 0.45, 0.35, 155, this.materials.curbStripe, 0);
 
     // 3. East Perimeter Road (x = 132, width 12m, runs South from z = -138 to -38, length 100m)
     this.createRoad(132, -88, 12, 100, 0);
 
-    // 4. Main Block North Cross-Road (z = -112, width 9m, runs West from x = 25 to -95, length 120m)
-    this.createRoad(-35, -112, 9, 120, Math.PI / 2);
+    // 5. West Academic Divider Road (x = -38, width 12m, runs from z = -110 to 115, length 225m)
+    this.createRoad(-38, 2.5, 12, 225, 0);
 
-    // 5. West Academic Divider Road (x = -38, width 12m, runs from z = -112 to 115, length 227m)
-    this.createRoad(-38, 1.5, 12, 227, 0);
-
-    // 6. PG / First Year West Service Road (x = -92, width 7.6m, runs from z = -112 to 35, length 147m)
-    this.createRoad(-92, -38.5, 7.6, 147, 0);
+    // 6. PG / First Year West Service Road (x = -92, width 7.6m, runs from z = -110 to 35, length 145m)
+    this.createRoad(-92, -37.5, 7.6, 145, 0);
 
     // 7. Main / PG South Cross-Road (z = -38, width 9m, runs from x = -92 across x = 25 to 132, length 224m)
     this.createRoad(20, -38, 9, 224, Math.PI / 2);
@@ -781,94 +1831,343 @@ export class CVRCampusMap {
 
     // Zebra Crosswalks at key pedestrian crossings
     this.buildZebraCrosswalk(25, -154, 11.5, 4.0); // Inside Main Gate
-    this.buildZebraCrosswalk(25, -138, 11.5, 4.0); // 12M Spine & Landscape Loop
-    this.buildZebraCrosswalk(25, -75, 11.5, 4.0);  // Main Building East Portico Crossing
     this.buildZebraCrosswalk(25, -38, 11.5, 4.0);  // CSE & Library Crossing
     this.buildZebraCrosswalk(-38, -75, 11.5, 4.0); // Main Block & PG Divider Crossing
   }
 
-  // --- 2. Signature Main Entrance Gate (x = 25, z = -160, facing North -Z) ---
-
   private buildSignatureMainEntranceGate(): void {
-    const gx = 25;
-    const gz = -160;
+    const gz = -172.0;
 
-    // --- A. WARM SANDSTONE EMBLEM WALL (Left / East of gate: x = 27 to 38, center x = 32.5) ---
-    // Facing North (-Z toward approach highway)
-    this.addBox(32.5, 4.75, gz, 11.0, 9.5, 1.8, this.materials.sandstoneMonument);
-    // Concrete top and right borders
-    this.addBox(32.5, 9.6, gz, 11.4, 0.4, 2.1, this.materials.concreteBorder);
-    this.addBox(38.0, 4.75, gz, 0.8, 9.5, 2.1, this.materials.concreteBorder);
+    // =========================================================================
+    // 1. APPROVED MAIN ENTRANCE GATE (Grand Architectural Centerpiece)
+    // Symmetrical, balanced openings (6.25m each): West center x = 21.325, East center x = 28.675
+    // Slim Central Pillar (width 1.1m, center x = 25.0), Total architectural portal along z = -172.0
+    // =========================================================================
 
-    // Central Circular CVR Emblem Medallion (radius 1.4m, mounted on North face at y = 5.4m)
-    const emblemGeo = new THREE.CircleGeometry(1.4, 32);
+    // --- A. SLIM CENTRAL MEDIAN PILLAR (Aligned with central median at x = 25.0) ---
+    // Slim elegant pillar body: width 1.1m (x = 24.45 to 25.55), depth 1.0m, height 4.8m
+    this.addBox(25.0, 2.4, gz, 1.1, 4.8, 1.0, this.materials.woodPillar);
+    // Subtle flush dark base trim and top coping trim (matching approved photo)
+    this.addBox(25.0, 0.08, gz, 1.16, 0.16, 1.06, this.materials.gateDarkFrame);
+    this.addBox(25.0, 4.88, gz, 1.16, 0.16, 1.06, this.materials.gateDarkFrame);
+
+    // Architectural inverted V-shaped chrome support truss rising from central pillar to underside of lintel (y = 4.88m to 5.8m)
+    this.addCylinder(25.0, 5.34, gz, 0.065, 0.92, this.materials.chromeStrut, false); // Center upright
+    this.addCylinder(24.62, 5.34, gz, 0.065, 0.96, this.materials.chromeStrut, false, 0, 0, 0.28); // Left strut
+    this.addCylinder(25.38, 5.34, gz, 0.065, 0.96, this.materials.chromeStrut, false, 0, 0, -0.28); // Right strut
+
+    // --- B. EAST VEHICLE OPENING & EAST PILLAR (Aligned with East Road Lane: clear width 6.25m, center x = 28.675) ---
+    // Clear opening: x = 25.55 to 31.80 (width 6.25m, center x = 28.675)
+    // East Main Pillar: width 1.1m (x = 31.80 to 32.90, depth 1.0m, height 6.8m, center x = 32.35)
+    this.addBox(32.35, 3.4, gz, 1.1, 6.8, 1.0, this.materials.woodPillar);
+    this.addBox(32.35, 0.08, gz, 1.16, 0.16, 1.06, this.materials.gateDarkFrame);
+    this.addBox(32.35, 6.85, gz, 1.16, 0.16, 1.06, this.materials.gateDarkFrame);
+
+    // Arched black wrought-iron double vehicle gates swung cleanly open inward against curbs
+    // Leaving both 6.25m vehicle openings completely open and 100% traversable into campus (+Z)
+    // Left leaf (hinged at central pillar x=25.55, folds against central divider curb):
+    this.buildArchedWroughtIronGate(25.88, gz + 1.46, 3.0, 3.6, -1.35, false, false);
+    // Right leaf (hinged at east pillar x=31.80, folds against east curb):
+    this.buildArchedWroughtIronGate(31.42, gz + 1.46, 3.0, 3.6, 1.35, true, true);
+
+    // --- C. WEST VEHICLE OPENING & WEST PILLAR (Aligned with West Road Lane: clear width 6.25m, center x = 21.325) ---
+    // Clear opening: x = 18.20 to 24.45 (width 6.25m, center x = 21.325)
+    // West Divider Pillar: width 1.1m (x = 17.10 to 18.20, depth 1.0m, height 6.8m, center x = 17.65)
+    this.addBox(17.65, 3.4, gz, 1.1, 6.8, 1.0, this.materials.woodPillar);
+    this.addBox(17.65, 0.08, gz, 1.16, 0.16, 1.06, this.materials.gateDarkFrame);
+    this.addBox(17.65, 6.85, gz, 1.16, 0.16, 1.06, this.materials.gateDarkFrame);
+
+    // Arched black wrought-iron double vehicle gates swung cleanly open inward against curbs
+    // Left leaf (hinged at west pillar x=18.20, folds against west curb):
+    this.buildArchedWroughtIronGate(18.58, gz + 1.46, 3.0, 3.6, -1.35, false, false);
+    // Right leaf (hinged at central pillar x=24.45, folds against central divider curb):
+    this.buildArchedWroughtIronGate(24.12, gz + 1.46, 3.0, 3.6, 1.35, true, false);
+
+    // --- D. GRAND OVERHEAD PORTAL LINTEL BEAM ---
+    // Spans from West Pillar outer edge (x = 17.10) across both openings and central pillar to East Pillar outer edge (x = 32.90)
+    // Span = 15.8m, height = 1.0m (y = 5.8m to 6.8m, center y = 6.3m, providing 5.8m clear vertical clearance), depth = 1.4m (center x = 25.0)
+    this.addBox(25.0, 6.3, gz, 15.8, 1.0, 1.4, this.materials.gateDarkFrame);
+    // Outer protective canopy cornice trim
+    this.addBox(25.0, 6.85, gz, 16.2, 0.15, 1.6, this.materials.gateDarkFrame);
+
+    // Architectural beveled fascia panel on North face of lintel beam
+    this.addBox(25.0, 6.3, gz - 0.71, 15.4, 0.88, 0.03, this.materials.gateDarkFrame, 0, false);
+    this.addBox(25.0, 6.3, gz - 0.725, 15.0, 0.78, 0.02, this.materials.monumentCharcoal, 0, false);
+
+    // Recessed Warm Downlight Spotlights under Lintel (activated dynamically from dusk to dawn)
+    const downlightMat = new THREE.MeshStandardMaterial({
+      color: 0xd6d3c9,
+      emissive: 0xffe8b0,
+      emissiveIntensity: 0,
+      roughness: 0.25,
+    });
+    this.gateDownlightMat = downlightMat;
+    this.disposables.push(downlightMat);
+    [18.8, 20.6, 22.4, 24.2, 25.8, 27.6, 29.4, 31.2].forEach((lx) => {
+      this.batchObj.position.set(lx, 5.78, gz);
+      this.batchObj.rotation.set(0, 0, 0);
+      this.batchObj.scale.set(1, 1, 1);
+      this.batchObj.updateMatrix();
+      this.enqueueStaticGeometry(new THREE.CylinderGeometry(0.18, 0.18, 0.05, 12), downlightMat, false, false, this.batchObj.matrix);
+    });
+
+    // --- MONUMENTAL REAL EXTRUDED 3D LETTERS "CVR COLLEGE OF ENGINEERING" ---
+    // Real extruded 3D architectural typography standing on top of the lintel beam
+    const fontLoader = new FontLoader();
+    const font = fontLoader.parse(helvetikerBoldFont);
+
+    const letterMat = new THREE.MeshStandardMaterial({
+      color: 0xdbe3ec,      // Brushed architectural stainless steel (avoids blown-out white)
+      metalness: 0.88,      // Natural outdoor metallic sky & sun reflection
+      roughness: 0.22,
+    });
+    this.disposables.push(letterMat);
+
+    // Build each word individually with generous architectural spacing and merge into 1 mesh
+    const words = ['CVR', 'COLLEGE', 'OF', 'ENGINEERING'];
+    const wordGap = 0.65;
+    const textGroupObj = new THREE.Object3D();
+    textGroupObj.position.set(25.0, 7.18, gz - 0.05);
+    textGroupObj.rotation.set(0, Math.PI, 0); // Face North (-Z)
+    textGroupObj.updateMatrix();
+
+    let currentX = 0;
+    const wordGeos: { geo: THREE.BufferGeometry; startX: number }[] = [];
+
+    words.forEach((w) => {
+      const g = new TextGeometry(w, {
+        font: font,
+        size: 0.58,
+        depth: 0.14,
+        curveSegments: 5,
+        bevelEnabled: true,
+        bevelThickness: 0.025,
+        bevelSize: 0.015,
+        bevelSegments: 2,
+      });
+      g.computeBoundingBox();
+      const wWidth = g.boundingBox ? g.boundingBox.max.x - g.boundingBox.min.x : 2.0;
+      wordGeos.push({ geo: g, startX: currentX });
+      currentX += wWidth + wordGap;
+    });
+
+    const totalSpan = currentX - wordGap;
+    const wordMatrix = new THREE.Matrix4();
+    wordGeos.forEach((wg) => {
+      this.batchObj.position.set(wg.startX - totalSpan / 2, 0, 0);
+      this.batchObj.rotation.set(0, 0, 0);
+      this.batchObj.scale.set(1, 1, 1);
+      this.batchObj.updateMatrix();
+      wordMatrix.multiplyMatrices(textGroupObj.matrix, this.batchObj.matrix);
+      this.enqueueStaticGeometry(wg.geo, letterMat, true, true, wordMatrix);
+    });
+
+    // Subtle dark contrast shadow backer behind 3D letters to enhance silhouette definition
+    const letterBackerGeo = new THREE.PlaneGeometry(14.8, 0.92);
+    const letterBackerMat = new THREE.MeshBasicMaterial({
+      color: 0x05080f,
+      transparent: true,
+      opacity: 0.40,
+      depthWrite: false,
+    });
+    this.disposables.push(letterBackerGeo, letterBackerMat);
+    const letterBackerMesh = new THREE.Mesh(letterBackerGeo, letterBackerMat);
+    letterBackerMesh.position.set(25.0, 7.46, gz + 0.12);
+    this.group.add(letterBackerMesh);
+
+    // Horizontal chrome mounting rail along top of lintel beam (y = 6.87m)
+    this.addBox(25.0, 6.87, gz, 14.5, 0.06, 0.18, this.materials.chromeStrut, 0, false);
+
+    // Chrome vertical back-support struts anchoring letters to top rail
+    [-6.2, -4.5, -2.8, -1.0, 0.0, 1.0, 2.8, 4.5, 6.2].forEach((sx) => {
+      this.addCylinder(25.0 + sx, 7.05, gz, 0.022, 0.35, this.materials.chromeStrut, false);
+    });
+
+    // --- E. WARM SANDSTONE EMBLEM MONUMENT (Right / West of vehicle gate: x = 9.5 to 16.7, center x = 13.1) ---
+    // Monument body: width 7.2m, height 8.5m (y = 0 to 8.5m), depth 1.8m (travertine coursed ashlar sandstone)
+    this.addBox(13.1, 4.25, gz, 7.2, 8.5, 1.8, this.materials.sandstoneMonument);
+    // Concrete coping trim & angled top profile per photo
+    this.addBox(13.1, 8.6, gz, 7.6, 0.30, 2.1, this.materials.concreteBorder);
+    this.addBox(9.5, 4.25, gz, 0.5, 8.5, 2.0, this.materials.concreteBorder);
+
+    // =========================================================================
+    // ORIGINAL CVR EMBLEM (Exact Original Artwork, Undistorted Aspect Ratio, 3D Plaque)
+    // Image aspect ratio: 554/470 = 1.1787. Height = 2.10m, Width = 2.475m
+    // =========================================================================
+    // 3D Architectural Backing Plaque (Circular section: center y ~ 5.55m, radius 1.16m, 6cm relief thickness)
+    this.addCylinder(13.1, 5.55, gz - 0.90, 1.16, 0.06, this.materials.gateDarkFrame, false, Math.PI / 2);
+
+    // Subtle 3D Metallic Bronze/Gold Bevel Lip framing the upper circular plaque
+    const plaqueRimGeo = new THREE.CylinderGeometry(1.20, 1.16, 0.03, 36);
+    const plaqueRimMat = new THREE.MeshStandardMaterial({
+      color: 0xc89b3c,
+      metalness: 0.85,
+      roughness: 0.25,
+    });
+    this.disposables.push(plaqueRimGeo, plaqueRimMat);
+    const plaqueRimMesh = new THREE.Mesh(plaqueRimGeo, plaqueRimMat);
+    plaqueRimMesh.rotation.x = Math.PI / 2;
+    plaqueRimMesh.position.set(13.1, 5.55, gz - 0.925);
+    this.group.add(plaqueRimMesh);
+
+    // Exact Original CVR Emblem Artwork on Sandstone Monument
+    const emblemGeo = new THREE.PlaneGeometry(2.475, 2.10);
     this.disposables.push(emblemGeo);
-    const emblemMat = new THREE.MeshBasicMaterial({ map: this.emblemTex, side: THREE.DoubleSide });
+    const emblemMat = new THREE.MeshStandardMaterial({
+      map: this.emblemTex,
+      roughness: 0.28,
+      metalness: 0.08,
+      transparent: true,
+      alphaTest: 0.2,
+      depthWrite: true,
+      side: THREE.DoubleSide,
+    });
     this.disposables.push(emblemMat);
     const emblemMesh = new THREE.Mesh(emblemGeo, emblemMat);
     emblemMesh.rotation.y = Math.PI; // Face North (-Z)
-    emblemMesh.position.set(32.5, 5.4, gz - 0.92);
+    emblemMesh.position.set(13.1, 5.35, gz - 0.942);
+    emblemMesh.castShadow = true;
     this.group.add(emblemMesh);
 
     // Raised Sandstone Plinth at the base (y = 0 to 1.1m)
-    this.addBox(32.5, 0.55, gz - 0.3, 10.6, 1.1, 2.4, this.materials.sandstoneMonument);
+    this.addBox(13.1, 0.55, gz - 0.3, 7.0, 1.1, 2.4, this.materials.sandstoneMonument);
 
-    // Stone-Brick Planter Bed with Green Shrubs (North front)
-    this.addBox(32.5, 0.4, gz - 1.8, 9.8, 0.8, 1.5, this.materials.planterStone);
-    this.addBox(32.5, 0.82, gz - 1.8, 9.2, 0.2, 1.2, this.materials.grassLawn, 0, false);
-    for (let s = -4.0; s <= 4.0; s += 1.3) {
-      const shrub = new THREE.Mesh(new THREE.DodecahedronGeometry(0.55, 0), this.materials.hedgeGreen);
-      shrub.position.set(32.5 + s, 1.15, gz - 1.8);
-      this.disposables.push(shrub.geometry);
-      this.group.add(shrub);
+    // Rustic Stacked Ashlar Stone Retaining Wall Planter Bed (North front: z = gz - 1.8)
+    this.addBox(13.1, 0.45, gz - 1.8, 6.8, 0.9, 1.5, this.materials.planterStone);
+    this.addBox(13.1, 0.92, gz - 1.8, 7.1, 0.10, 1.7, this.materials.concreteBorder);
+    this.addBox(13.1, 0.88, gz - 1.8, 6.6, 0.12, 1.3, this.materials.sandSoil, 0, false);
+
+    // Layered Lush Landscaping: Deep Green Shrubs + Bright Flowering Highlights
+    for (let s = -2.7; s <= 2.7; s += 0.9) {
+      this.instancedShrubs.push({
+        x: 13.1 + s,
+        y: 1.18,
+        z: gz - 1.8 + Math.sin(s * 3) * 0.12,
+        scale: 0.48 / 0.38,
+        matType: 'shrub',
+      });
+
+      // Yellow & lime flower cluster highlights matching reference photo
+      const flowerType = Math.abs(s) % 1.8 < 0.5 ? 'yellow' : 'lime';
+      this.instancedShrubs.push({
+        x: 13.1 + s + 0.15,
+        y: 1.48,
+        z: gz - 1.85,
+        scale: 0.18 / 0.38,
+        matType: flowerType,
+      });
     }
 
-    // 3D Dark-Charcoal Block Letters "C V R" on North face of plinth
-    this.build3DLettersCVR(32.5, 1.75, gz - 0.95);
+    // 3D Dark-Charcoal Block Letters "C V R" on North face of sandstone monument
+    this.build3DLettersCVR(13.1, 1.95, gz - 0.96);
 
-    // --- B. DARK WALNUT WOOD-PANELED CENTRAL PILLAR (x = 25 to 27, center x = 26) ---
-    this.addBox(26.0, 4.75, gz, 2.2, 9.5, 2.2, this.materials.woodPillar);
+    // =========================================================================
+    // 2. SMALL PEDESTRIAN GATE (Human-Scale, on Approved Right / West side)
+    // Located beside the Sandstone Monument at x in [6.7, 9.3] (center x = 8.0, clear width 2.6m, height 2.4m)
+    // =========================================================================
+    // Wall link between Main Gate Monument and Pedestrian Gate (x = 9.3 to 9.5, width 0.2m)
+    this.addBox(9.4, 1.2, gz, 0.2, 2.4, 0.45, this.materials.boundaryWall);
 
-    // --- C. OVERHEAD DARK CHARCOAL LINTEL BEAM (Right / West: x = 11 to 27, center x = 19) ---
-    this.addBox(19.0, 8.2, gz, 16.0, 1.6, 2.2, this.materials.gateDarkFrame);
+    // East Gatepost: x = 9.3, height 2.8m
+    this.addBox(9.3, 1.4, gz, 0.35, 2.8, 0.45, this.materials.concreteBorder);
+    // West Gatepost: x = 6.7, height 2.8m
+    this.addBox(6.7, 1.4, gz, 0.35, 2.8, 0.45, this.materials.concreteBorder);
 
-    // Lintel Signboard: "CVR COLLEGE OF ENGINEERING" on North face
-    const signGeo = new THREE.PlaneGeometry(15.2, 1.35);
-    this.disposables.push(signGeo);
-    const signMat = new THREE.MeshBasicMaterial({ map: this.gateSignTex, side: THREE.DoubleSide });
-    this.disposables.push(signMat);
-    const signMesh = new THREE.Mesh(signGeo, signMat);
-    signMesh.rotation.y = Math.PI; // Face North (-Z)
-    signMesh.position.set(19.0, 8.2, gz - 1.12);
-    this.group.add(signMesh);
+    // Arched wrought-iron pedestrian gate leaf swung open into campus (+Z)
+    this.buildArchedWroughtIronGate(8.0, gz + 0.8, 2.4, 2.3, Math.PI / 6, false);
 
-    // Dual-Arm Streetlamp on Lintel
-    this.addCylinder(19.0, 9.8, gz, 0.12, 1.5, this.materials.gateDarkFrame, false);
-    this.addBox(18.1, 10.6, gz, 1.8, 0.1, 0.1, this.materials.gateDarkFrame, 0, false);
-    this.addBox(19.9, 10.6, gz, 1.8, 0.1, 0.1, this.materials.gateDarkFrame, 0, false);
+    // =========================================================================
+    // 3. SECURITY CABIN / WATCHMAN'S KIOSK
+    // Beside Pedestrian Gate: x in [2.2, 6.2] (center x = 4.2, width 4.0m, height 3.5m, depth 4.0m, z: -175.0 to -171.0)
+    // =========================================================================
+    // Wall link between Pedestrian Gate and Security Cabin (x = 6.2 to 6.7, width 0.5m)
+    this.addBox(6.45, 1.2, gz, 0.5, 2.4, 0.45, this.materials.boundaryWall);
 
-    // West Support Pillar (x = 11.5)
-    this.addBox(11.5, 4.75, gz, 1.8, 9.5, 2.2, this.materials.gateDarkFrame);
+    // Security Cabin Body
+    this.addBox(4.2, 1.75, -173.0, 4.0, 3.5, 4.0, this.materials.academicWall);
+    // Cantilevered Roof Slab
+    this.addBox(4.2, 3.65, -173.0, 4.4, 0.35, 4.4, this.materials.gateDarkFrame);
+    // Service window facing East onto pedestrian walkway (x = 6.22, z = -172.5)
+    this.addBox(6.22, 1.8, -172.5, 0.05, 1.2, 1.6, this.materials.windowGlass, 0, false);
+    this.addBox(6.25, 1.1, -172.5, 0.35, 0.1, 1.8, this.materials.concreteBorder, 0, false);
+    // Front observation window facing North onto approach forecourt (z = -175.02)
+    this.addBox(4.2, 1.8, -175.02, 2.4, 1.2, 0.05, this.materials.windowGlass, 0, false);
 
-    // --- D. ARCHED BLACK WROUGHT-IRON DOUBLE GATES ---
-    // Swung open inward toward South (+Z) to frame the 12m road entrance
-    this.buildArchedWroughtIronGate(13.8, gz + 2.5, 4.8, 3.8, Math.PI / 6, false); // West leaf
-    this.buildArchedWroughtIronGate(24.2, gz + 2.5, 4.8, 3.8, -Math.PI / 6, true);  // East leaf with notice board
+    // Wall link between Security Cabin and Bus Exit Gate (x = 0.0 to 2.2, width 2.2m)
+    this.addBox(1.1, 1.2, gz, 2.2, 2.4, 0.45, this.materials.boundaryWall);
 
-    // --- E. SECURITY GUARD CABIN (x = 17, z = -152) ---
-    this.addBox(17, 2.1, -152, 4.2, 4.2, 4.5, this.materials.academicWall);
-    this.addBox(17, 4.3, -152, 4.8, 0.35, 5.1, this.materials.gateDarkFrame);
-    this.addBox(17, 2.2, -154.3, 2.6, 1.6, 0.1, this.materials.windowGlass, 0, false);
+    // =========================================================================
+    // 4. DEDICATED BUS EXIT GATE (Proper Realistic College Scale)
+    // Positioned beside Security Cabin: x in [-7.5, 0.0] (center x = -3.75, clear opening width 7.5m, height 4.8m)
+    // Preserves generous 4.2m vertical clearance and 7.5m width for full-sized buses
+    // =========================================================================
+    // East Gate Pillar: x = 0.0, z = -172.0 (0.8m x 0.8m, height 4.8m, center y = 2.4m)
+    this.addBox(0.0, 2.4, gz, 0.8, 4.8, 0.8, this.materials.gateDarkFrame);
+    // West Gate Pillar: x = -7.5, z = -172.0 (0.8m x 0.8m, height 4.8m, center y = 2.4m)
+    this.addBox(-7.5, 2.4, gz, 0.8, 4.8, 0.8, this.materials.gateDarkFrame);
+
+    // Overhead Lintel Beam (spans x = -7.9 to 0.4, length 8.3m, height 0.6m, y = 4.2 to 4.8m, center y = 4.5m)
+    this.addBox(-3.75, 4.5, gz, 8.3, 0.6, 1.0, this.materials.gateDarkFrame);
+
+    // Bus Exit Signboard on North Face (-Z)
+    const exitSignGeo = new THREE.PlaneGeometry(7.0, 0.52);
+    this.disposables.push(exitSignGeo);
+    const exitSignTex = this.createBusExitSignTexture();
+    const exitSignMat = this.createCampusSignMaterial(exitSignTex, false, 0.22);
+    const exitSignMesh = new THREE.Mesh(exitSignGeo, exitSignMat);
+    exitSignMesh.rotation.y = Math.PI; // Face North (-Z)
+    exitSignMesh.position.set(-3.75, 4.5, gz - 0.52);
+    this.group.add(exitSignMesh);
+
+    // Arched Wrought-Iron Double Exit Gates swung fully open inward against curbs
+    this.buildArchedWroughtIronGate(-5.6, gz + 1.2, 3.4, 3.4, Math.PI / 3, false);
+    this.buildArchedWroughtIronGate(-1.9, gz + 1.2, 3.4, 3.4, -Math.PI / 3, false);
+
+    // Dedicated Bus Egress Driveway connecting from PG Block road (z = -172.0 to -110.0, length 62m, width 7.5m, center x = -3.75)
+    this.createRoad(-3.75, -141.0, 7.5, 62.0, 0, this.materials.asphalt, false);
+    this.addBox(-7.7, 0.17, -141.0, 0.45, 0.35, 62.0, this.materials.curbStripe, 0);
+    this.addBox(0.2, 0.17, -141.0, 0.45, 0.35, 62.0, this.materials.curbStripe, 0);
+
+    // Paved Approach Ramp connecting North to Highway (z = -186.0 to -172.0, length 14m, width 7.5m, center x = -3.75)
+    this.createRoad(-3.75, -179.0, 7.5, 14.0, 0, this.materials.asphalt, false);
+    this.addBox(-7.7, 0.17, -179.0, 0.45, 0.35, 14.0, this.materials.curbStripe, 0);
+    this.addBox(0.2, 0.17, -179.0, 0.45, 0.35, 14.0, this.materials.curbStripe, 0);
+  }
+
+  private createBusExitSignTexture(): THREE.CanvasTexture {
+    const canvas = document.createElement('canvas');
+    canvas.width = 2048;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d')!;
+
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.strokeStyle = '#e2e8f0';
+    ctx.lineWidth = 6;
+    ctx.strokeRect(12, 12, canvas.width - 24, canvas.height - 24);
+
+    ctx.fillStyle = '#facc15';
+    ctx.font = '900 48px "Arial Black", system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.letterSpacing = '2px';
+    ctx.fillText('CVR COLLEGE OF ENGINEERING — BUS EXIT', canvas.width / 2, canvas.height / 2);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    this.disposables.push(texture);
+    return texture;
   }
 
   private build3DLettersCVR(x: number, y: number, z: number): void {
     const mat = this.materials.monumentCharcoal;
     const h = 1.35;
-    const t = 0.28;
+    const t = 0.14; // Crisp 14cm 3D relief thickness
 
     // When facing South (+Z toward campus), Left on screen is +X, Right is -X.
-    // 'C' (Left side: centered at x + 2.4)
-    const cx = x + 2.4;
+    // 'C' (Left side: centered at x + 2.3)
+    const cx = x + 2.3;
     this.addBox(cx + 0.35, y, z, 0.22, h, t, mat, 0, false);
     this.addBox(cx - 0.05, y + h / 2 - 0.11, z, 0.65, 0.22, t, mat, 0, false);
     this.addBox(cx - 0.05, y - h / 2 + 0.11, z, 0.65, 0.22, t, mat, 0, false);
@@ -877,8 +2176,8 @@ export class CVRCampusMap {
     this.addBox(x + 0.2, y, z, 0.22, 1.4, t, mat, 0, false, 0, -0.28);
     this.addBox(x - 0.2, y, z, 0.22, 1.4, t, mat, 0, false, 0, 0.28);
 
-    // 'R' (Right side: centered at x - 2.4)
-    const rx = x - 2.4;
+    // 'R' (Right side: centered at x - 2.3)
+    const rx = x - 2.3;
     this.addBox(rx + 0.35, y, z, 0.22, h, t, mat, 0, false);
     this.addBox(rx - 0.05, y + h / 2 - 0.11, z, 0.45, 0.22, t, mat, 0, false);
     this.addBox(rx - 0.05, y + 0.02, z, 0.45, 0.22, t, mat, 0, false);
@@ -892,166 +2191,336 @@ export class CVRCampusMap {
     width: number,
     height: number,
     rotY: number,
-    hasNotice: boolean
+    isRightLeaf = false,
+    hasNotice = false,
+    hasCollision = false
   ): void {
-    const gateGroup = new THREE.Group();
-    gateGroup.position.set(x, 0, z);
-    gateGroup.rotation.y = rotY;
+    const gateObj = new THREE.Object3D();
+    gateObj.position.set(x, 0, z);
+    gateObj.rotation.set(0, rotY, 0);
+    gateObj.scale.set(1, 1, 1);
+    gateObj.updateMatrix();
 
-    // Rails
-    const botRail = new THREE.Mesh(new THREE.BoxGeometry(width, 0.18, 0.12), this.materials.ironGateBlack);
-    botRail.position.set(0, 0.3, 0);
-    gateGroup.add(botRail);
+    const partObj = new THREE.Object3D();
+    const partWorldMat = new THREE.Matrix4();
+    const enqueuePart = (
+      geo: THREE.BufferGeometry,
+      mat: THREE.Material,
+      px: number,
+      py: number,
+      pz: number,
+      rx = 0,
+      ry = 0,
+      rz = 0,
+      sx = 1,
+      sy = 1,
+      sz = 1
+    ) => {
+      partObj.position.set(px, py, pz);
+      partObj.rotation.set(rx, ry, rz);
+      partObj.scale.set(sx, sy, sz);
+      partObj.updateMatrix();
+      partWorldMat.multiplyMatrices(gateObj.matrix, partObj.matrix);
+      this.enqueueStaticGeometry(geo, mat, true, true, partWorldMat);
+    };
 
-    const midRail = new THREE.Mesh(new THREE.BoxGeometry(width, 0.12, 0.12), this.materials.ironGateBlack);
-    midRail.position.set(0, 0.9, 0);
-    gateGroup.add(midRail);
+    // 1. Lower Rails & Decorative Ring Band (Signature CVR gate feature from real photo)
+    enqueuePart(new THREE.BoxGeometry(width, 0.14, 0.08), this.materials.ironGateBlack, 0, 0.25, 0);
+    enqueuePart(new THREE.BoxGeometry(width, 0.12, 0.08), this.materials.ironGateBlack, 0, 0.85, 0);
 
-    const topRail = new THREE.Mesh(new THREE.BoxGeometry(width, 0.16, 0.12), this.materials.ironGateBlack);
-    topRail.position.set(0, height, 0);
-    gateGroup.add(topRail);
+    // Decorative Circular Rings along lower band
+    const ringCount = 8;
+    const ringSpacing = width / (ringCount + 1);
+    for (let r = 1; r <= ringCount; r++) {
+      const rx = -width / 2 + r * ringSpacing;
+      enqueuePart(new THREE.TorusGeometry(0.13, 0.022, 6, 12), this.materials.ironGateBlack, rx, 0.55, 0);
+    }
 
-    // Picketing & spear finials
-    const barCount = 10;
+    // 2. Vertical Wrought-Iron Picketing & Diamond Gold Spearhead Finials
+    const barCount = 14;
     const spacing = width / (barCount + 1);
+    const topPoints: THREE.Vector3[] = [];
+
     for (let i = 1; i <= barCount; i++) {
       const bx = -width / 2 + i * spacing;
-      const arch = Math.sin((i / (barCount + 1)) * Math.PI) * 0.45;
-      const barH = height - 0.3 + arch;
+      const t = isRightLeaf ? (barCount + 1 - i) / (barCount + 1) : i / (barCount + 1);
+      const arch = Math.sin(t * (Math.PI / 2)) * 0.82;
+      const barH = height - 0.4 + arch;
 
-      const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, barH, 8), this.materials.ironGateBlack);
-      bar.position.set(bx, barH / 2 + 0.3, 0);
-      gateGroup.add(bar);
+      enqueuePart(new THREE.CylinderGeometry(0.026, 0.026, 1, 8), this.materials.ironGateBlack, bx, barH / 2 + 0.25, 0, 0, 0, 0, 1, barH, 1);
+      enqueuePart(new THREE.TorusGeometry(0.042, 0.012, 6, 10), this.materials.gateGold, bx, barH + 0.25, 0, Math.PI / 2, 0, 0);
+      enqueuePart(new THREE.ConeGeometry(0.055, 0.22, 4), this.materials.gateGold, bx, barH + 0.36, 0, 0, Math.PI / 4, 0);
 
-      const finial = new THREE.Mesh(new THREE.ConeGeometry(0.065, 0.25, 8), this.materials.gateGold);
-      finial.position.set(bx, barH + 0.42, 0);
-      gateGroup.add(finial);
+      topPoints.push(new THREE.Vector3(bx, barH + 0.25, 0));
     }
+
+    // Top Arched Continuous Curved Rail
+    const curve = new THREE.CatmullRomCurve3(topPoints);
+    enqueuePart(new THREE.TubeGeometry(curve, 16, 0.042, 6, false), this.materials.ironGateBlack, 0, 0, 0);
+
+    // Heavy-duty cylindrical iron hinges on the hinge side of the gate
+    const hingeX = isRightLeaf ? width / 2 : -width / 2;
+    [0.75, 1.85, 2.95].forEach((hy) => {
+      enqueuePart(new THREE.CylinderGeometry(0.042, 0.042, 0.16, 10), this.materials.ironGateBlack, hingeX, hy, 0);
+    });
 
     if (hasNotice) {
-      const noticeMesh = new THREE.Mesh(
-        new THREE.PlaneGeometry(1.8, 1.3),
-        new THREE.MeshBasicMaterial({ map: this.noticeTex, side: THREE.DoubleSide })
-      );
-      noticeMesh.position.set(0, 2.2, 0.08);
-      gateGroup.add(noticeMesh);
+      const noticeMat = new THREE.MeshBasicMaterial({ map: this.noticeTex, side: THREE.DoubleSide });
+      const noticeGeo = new THREE.PlaneGeometry(1.6, 1.1);
+      this.disposables.push(noticeMat, noticeGeo);
+      const noticeMesh = new THREE.Mesh(noticeGeo, noticeMat);
+      noticeMesh.position.set(0, 2.0, 0.08);
+      noticeMesh.applyMatrix4(gateObj.matrix);
+      this.group.add(noticeMesh);
     }
 
-    this.group.add(gateGroup);
-    this.physics.createStaticBox(x, height / 2, z, width, height, 0.3, rotY);
+    if (hasCollision) {
+      this.physics.createStaticBox(x, height / 2, z, width, height, 0.3, rotY);
+    }
   }
 
   // --- 3. North Bus Bay (x = 50 to 135, z = -163) ---
 
   private buildNorthBusBay(): void {
-    // Earthen Red-Soil & Paved Bus Bay Ground
-    const bayGeo = new THREE.PlaneGeometry(85, 26);
-    this.disposables.push(bayGeo);
-    const bayMesh = new THREE.Mesh(bayGeo, this.materials.redSoil);
-    bayMesh.rotation.x = -Math.PI / 2;
-    bayMesh.position.set(92.5, 0.018, -163);
-    bayMesh.receiveShadow = true;
-    this.group.add(bayMesh);
+    // 60-Bus Parking Ground on LEFT: X in [34.0, 150.0], Z in [-171.0, -115.0]
+    // Footprint: 116m wide x 56m deep (6,496 m2 = 1.60 acres). Level white sand surface.
+    // Preserves exactly 60 full-sized individually numbered 3D buses (01-60)
+    // Confined to Z < -115.0, keeping buses completely away from Main Block frontage (Z in [-103, -47]).
+    const sandGeo = new THREE.PlaneGeometry(116.0, 56.0);
+    this.disposables.push(sandGeo);
+    const sandMesh = new THREE.Mesh(sandGeo, this.materials.sandSoil);
+    sandMesh.rotation.x = -Math.PI / 2;
+    sandMesh.position.set(92.0, 0.02, -143.0);
+    sandMesh.receiveShadow = true;
+    this.group.add(sandMesh);
 
-    // Bus Bay Concrete Kerbs & Shelters
-    this.addBox(92.5, 0.17, -150.2, 85, 0.35, 0.45, this.materials.curbStripe, 0);
-    this.addBox(92.5, 0.17, -175.8, 85, 0.35, 0.45, this.materials.curbStripe, 0);
+    // Parking ground perimeter curbs
+    this.addBox(92.0, 0.17, -171.2, 116.0, 0.35, 0.45, this.materials.curbStripe, 0);
+    this.addBox(150.2, 0.17, -143.0, 0.45, 0.35, 56.0, this.materials.curbStripe, 0);
+    this.addBox(92.0, 0.17, -114.8, 116.0, 0.35, 0.45, this.materials.curbStripe, 0);
 
-    // Blue "BUS PARKING" Signboard at x = 54, z = -151
-    this.addCylinder(54, 1.8, -151, 0.06, 3.6, this.materials.steelTower, false);
-    const signMesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(1.8, 0.9),
-      new THREE.MeshBasicMaterial({ map: this.busSignTex, side: THREE.DoubleSide })
+    // Central Cross-Circulation Driveway through parking ground (z = -144 to -132, width 12m)
+    this.createRoad(92.0, -138.0, 12.0, 116.0, Math.PI / 2, this.materials.asphalt, false);
+
+    // High-Tension Transmission Tower (Pylon) at North-East perimeter corner (x = 142, z = -162)
+    this.buildLatticeTransmissionTower(142, -162);
+
+    // Shared Geometries for 59 static college buses (Buses 02 to 60)
+    // Bus 01 is dynamically managed by VehicleController at x = 50.25, z = -168.0, yaw = Math.PI / 2
+    const sharedCabinGeo = new THREE.BoxGeometry(2.8, 1.9, 10.5);
+    const sharedSkirtGeo = new THREE.BoxGeometry(2.8, 0.7, 10.5);
+    const sharedRoofGeo = new THREE.BoxGeometry(2.7, 0.35, 10.3);
+    const sharedWinGeo = new THREE.BoxGeometry(2.85, 0.9, 8.5);
+    const sharedWheelGeo = new THREE.CylinderGeometry(0.55, 0.55, 0.4, 12);
+    sharedWheelGeo.rotateZ(Math.PI / 2);
+    const sharedFrontPlateGeo = new THREE.PlaneGeometry(1.6, 0.65);
+    const sharedSidePlateGeo = new THREE.PlaneGeometry(3.0, 0.75);
+    this.disposables.push(
+      sharedCabinGeo, sharedSkirtGeo, sharedRoofGeo, sharedWinGeo,
+      sharedWheelGeo, sharedFrontPlateGeo, sharedSidePlateGeo
     );
-    signMesh.position.set(54, 3.2, -151);
-    this.group.add(signMesh);
 
-    // Parked CVR College Buses in the Bay (staggered parking rows)
-    const busSlots = [88, 108, 126];
-    busSlots.forEach((bx) => {
-      this.buildStaticCVRBus(bx, -163, 0);
+    const { frontTex, sideTex, getFrontRect, getSideRect } = this.createBusAtlases();
+    const frontMat = this.createBusAtlasMaterial(frontTex, 'busFrontAtlasMat');
+    const sideMat = this.createBusAtlasMaterial(sideTex, 'busSideAtlasMat');
+
+    // Collect all 59 static bus placements (Buses 02 to 60)
+    const northSlotZ = [-168.0, -164.2, -160.4, -156.6, -152.8, -149.0];
+    const southSlotZ = [-129.0, -125.6, -122.2, -118.8];
+    const slotZ = [...northSlotZ, ...southSlotZ];
+
+    const columns = [
+      { col: 1, x: 50.25,  yaw: Math.PI / 2,  startNum: 1 },
+      { col: 2, x: 62.75,  yaw: -Math.PI / 2, startNum: 11 },
+      { col: 3, x: 86.25,  yaw: Math.PI / 2,  startNum: 21 },
+      { col: 4, x: 98.75,  yaw: -Math.PI / 2, startNum: 31 },
+      { col: 5, x: 122.25, yaw: Math.PI / 2,  startNum: 41 },
+      { col: 6, x: 134.75, yaw: -Math.PI / 2, startNum: 51 }
+    ];
+
+    const busPlacements: { busNum: number; x: number; z: number; yaw: number }[] = [];
+    for (const c of columns) {
+      for (let s = 0; s < slotZ.length; s++) {
+        const busNum = c.startNum + s;
+        if (busNum === 1) continue; // Bus 01 is drivable
+        busPlacements.push({ busNum, x: c.x, z: slotZ[s], yaw: c.yaw });
+      }
+    }
+
+    const busCount = busPlacements.length; // 59
+    const wheelOffsetsZ = [-3.2, 2.5, 3.8];
+
+    const cabinInst = new THREE.InstancedMesh(sharedCabinGeo, this.materials.busYellow, busCount);
+    cabinInst.castShadow = true;
+    cabinInst.receiveShadow = true;
+
+    const skirtInst = new THREE.InstancedMesh(sharedSkirtGeo, this.materials.maroonWall, busCount);
+    skirtInst.castShadow = true;
+    skirtInst.receiveShadow = true;
+
+    const roofInst = new THREE.InstancedMesh(sharedRoofGeo, this.materials.busRoofWhite, busCount);
+    roofInst.receiveShadow = true;
+
+    const winInst = new THREE.InstancedMesh(sharedWinGeo, this.materials.busWindowGlass, busCount);
+
+    const tireInst = new THREE.InstancedMesh(sharedWheelGeo, this.materials.busTire, busCount * 6);
+
+    const frontAtlasData = new Float32Array(busCount * 4);
+    const frontAtlasAttr = new THREE.InstancedBufferAttribute(frontAtlasData, 4);
+    sharedFrontPlateGeo.setAttribute('aAtlasRect', frontAtlasAttr);
+    const frontPlateInst = new THREE.InstancedMesh(sharedFrontPlateGeo, frontMat, busCount);
+
+    const sideAtlasData = new Float32Array(busCount * 2 * 4);
+    const sideAtlasAttr = new THREE.InstancedBufferAttribute(sideAtlasData, 4);
+    sharedSidePlateGeo.setAttribute('aAtlasRect', sideAtlasAttr);
+    const sidePlateInst = new THREE.InstancedMesh(sharedSidePlateGeo, sideMat, busCount * 2);
+
+    const busGroupObj = new THREE.Object3D();
+    const partObj = new THREE.Object3D();
+    const worldMat = new THREE.Matrix4();
+
+    const setPartMatrix = (
+      inst: THREE.InstancedMesh,
+      index: number,
+      lx: number,
+      ly: number,
+      lz: number,
+      ry = 0
+    ) => {
+      partObj.position.set(lx, ly, lz);
+      partObj.rotation.set(0, ry, 0);
+      partObj.scale.set(1, 1, 1);
+      partObj.updateMatrix();
+      worldMat.multiplyMatrices(busGroupObj.matrix, partObj.matrix);
+      inst.setMatrixAt(index, worldMat);
+    };
+
+    let tireIdx = 0;
+    let sideIdx = 0;
+
+    busPlacements.forEach((bp, i) => {
+      busGroupObj.position.set(bp.x, 1.62, bp.z);
+      busGroupObj.rotation.set(0, bp.yaw, 0);
+      busGroupObj.scale.set(1, 1, 1);
+      busGroupObj.updateMatrix();
+
+      setPartMatrix(cabinInst, i, 0, 0.4, 0);
+      setPartMatrix(skirtInst, i, 0, -0.9, 0);
+      setPartMatrix(roofInst, i, 0, 1.45, 0);
+      setPartMatrix(winInst, i, 0, 0.55, 0.2);
+
+      for (const wz of wheelOffsetsZ) {
+        setPartMatrix(tireInst, tireIdx++, -1.4, -1.05, wz);
+        setPartMatrix(tireInst, tireIdx++, 1.4, -1.05, wz);
+      }
+
+      setPartMatrix(frontPlateInst, i, 0, 1.15, -5.28, Math.PI);
+      const fRect = getFrontRect(bp.busNum);
+      frontAtlasData[i * 4 + 0] = fRect[0];
+      frontAtlasData[i * 4 + 1] = fRect[1];
+      frontAtlasData[i * 4 + 2] = fRect[2];
+      frontAtlasData[i * 4 + 3] = fRect[3];
+
+      const sRect = getSideRect(bp.busNum);
+      setPartMatrix(sidePlateInst, sideIdx, -1.42, 0.4, 0, -Math.PI / 2);
+      sideAtlasData[sideIdx * 4 + 0] = sRect[0];
+      sideAtlasData[sideIdx * 4 + 1] = sRect[1];
+      sideAtlasData[sideIdx * 4 + 2] = sRect[2];
+      sideAtlasData[sideIdx * 4 + 3] = sRect[3];
+      sideIdx++;
+
+      setPartMatrix(sidePlateInst, sideIdx, 1.42, 0.4, 0, Math.PI / 2);
+      sideAtlasData[sideIdx * 4 + 0] = sRect[0];
+      sideAtlasData[sideIdx * 4 + 1] = sRect[1];
+      sideAtlasData[sideIdx * 4 + 2] = sRect[2];
+      sideAtlasData[sideIdx * 4 + 3] = sRect[3];
+      sideIdx++;
+
+      // Static physics box for realistic vehicle collision
+      this.physics.createStaticBox(bp.x, 1.62, bp.z, 10.5, 3.2, 2.8);
     });
-  }
 
-  private buildStaticCVRBus(x: number, z: number, yaw: number): void {
-    const group = new THREE.Group();
-    group.position.set(x, 1.7, z);
-    group.rotation.y = yaw;
-
-    // Body
-    const cabin = new THREE.Mesh(new THREE.BoxGeometry(2.8, 1.9, 10.5), this.materials.busYellow);
-    cabin.position.set(0, 0.4, 0);
-    cabin.castShadow = true;
-    group.add(cabin);
-
-    // Maroon Skirt
-    const skirt = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.7, 10.5), this.materials.maroonWall);
-    skirt.position.set(0, -0.9, 0);
-    skirt.castShadow = true;
-    group.add(skirt);
-
-    // White Roof
-    const roof = new THREE.Mesh(new THREE.BoxGeometry(2.7, 0.35, 10.3), this.materials.busRoofWhite);
-    roof.position.set(0, 1.45, 0);
-    group.add(roof);
-
-    // Windows
-    const win = new THREE.Mesh(new THREE.BoxGeometry(2.85, 0.9, 8.5), this.materials.windowGlass);
-    win.position.set(0, 0.55, 0.2);
-    group.add(win);
-
-    // Tires
-    const wheelGeo = new THREE.CylinderGeometry(0.55, 0.55, 0.4, 16);
-    wheelGeo.rotateZ(Math.PI / 2);
-    [-3.2, 2.5, 3.8].forEach((wz) => {
-      const leftTire = new THREE.Mesh(wheelGeo, this.materials.busTire);
-      leftTire.position.set(-1.4, -1.05, wz);
-      group.add(leftTire);
-
-      const rightTire = new THREE.Mesh(wheelGeo, this.materials.busTire);
-      rightTire.position.set(1.4, -1.05, wz);
-      group.add(rightTire);
+    const busInstancedMeshes = [
+      cabinInst,
+      skirtInst,
+      roofInst,
+      winInst,
+      tireInst,
+      frontPlateInst,
+      sidePlateInst,
+    ];
+    busInstancedMeshes.forEach((im) => {
+      im.instanceMatrix.needsUpdate = true;
+      im.computeBoundingSphere();
+      this.group.add(im);
+      this.disposables.push(im);
     });
-
-    this.group.add(group);
-    this.physics.createStaticBox(x, 1.7, z, 2.8, 3.3, 10.5, yaw);
+    cabinInst.name = 'CVR_Static_Buses_Instanced';
   }
-
-  // --- 4. Central 12M Spine Avenue & Quaternius Streetlights ---
 
   private buildCentral12MSpineAvenue(): void {
-    // Streetlights (Streetlight_Single.glb) lining the 12M Spine Avenue
+    // Streetlights (Streetlight_Single.glb) lining the 12M Spine Avenue (InstancedMesh)
     const streetlightZ = [-145, -115, -85, -55, -25, 5, 35, 65, 95];
     this.gltfLoader.load(
       '/models/Streetlight_Single.glb',
       (gltf) => {
+        gltf.scene.updateMatrixWorld(true);
         const box = new THREE.Box3().setFromObject(gltf.scene);
         const rawH = box.max.y - box.min.y || 1.0;
         const targetH = 6.5; // Normalized 6.5m metric pole height
         const scaleFactor = targetH / rawH;
 
+        const lampEmissiveMat = new THREE.MeshStandardMaterial({
+          color: 0xe2dfd5,
+          emissive: 0xffe8a8,
+          emissiveIntensity: this.lastNightFactor > 0 ? this.lastNightFactor * 2.0 : 0,
+          roughness: 0.25,
+        });
+        this.lampEmissiveMat = lampEmissiveMat;
+        this.disposables.push(lampEmissiveMat);
+
+        const sourceParts: { geo: THREE.BufferGeometry; mat: THREE.Material; localMat: THREE.Matrix4; isBulb: boolean }[] = [];
+        gltf.scene.traverse((child) => {
+          if (child instanceof THREE.Mesh) {
+            const origMat = child.material as THREE.Material;
+            const isBulb = Boolean(origMat && (origMat.name === 'Light' || origMat.name === 'Glass'));
+            const mat = isBulb ? lampEmissiveMat : origMat;
+            sourceParts.push({
+              geo: child.geometry,
+              mat,
+              localMat: child.matrixWorld.clone(),
+              isBulb,
+            });
+          }
+        });
+
+        const lampObj = new THREE.Object3D();
+        const combinedMat = new THREE.Matrix4();
+
+        sourceParts.forEach((part) => {
+          const inst = new THREE.InstancedMesh(part.geo, part.mat, streetlightZ.length);
+          inst.castShadow = !part.isBulb;
+          inst.receiveShadow = false;
+          streetlightZ.forEach((sz, idx) => {
+            const side = idx % 2 === 0 ? 1 : -1;
+            const sx = 25 + side * 6.8;
+            lampObj.position.set(sx, 0, sz);
+            lampObj.rotation.set(0, side > 0 ? -Math.PI / 2 : Math.PI / 2, 0);
+            lampObj.scale.setScalar(scaleFactor);
+            lampObj.updateMatrix();
+            combinedMat.multiplyMatrices(lampObj.matrix, part.localMat);
+            inst.setMatrixAt(idx, combinedMat);
+          });
+          inst.instanceMatrix.needsUpdate = true;
+          inst.computeBoundingSphere();
+          this.group.add(inst);
+          this.disposables.push(part.geo, inst);
+          if (!part.isBulb) this.disposables.push(part.mat);
+        });
+
         streetlightZ.forEach((sz, idx) => {
           const side = idx % 2 === 0 ? 1 : -1;
           const sx = 25 + side * 6.8;
-          const lamp = gltf.scene.clone();
-          lamp.scale.setScalar(scaleFactor);
-          lamp.position.set(sx, 0, sz);
-          lamp.rotation.y = side > 0 ? -Math.PI / 2 : Math.PI / 2;
-
-          lamp.traverse((child) => {
-            if (child instanceof THREE.Mesh) {
-              child.castShadow = true;
-              if (child.material && (child.material.name === 'Light' || child.material.name === 'Glass')) {
-                child.material = new THREE.MeshStandardMaterial({
-                  color: 0xfffbeb,
-                  emissive: 0xfef08a,
-                  emissiveIntensity: 1.8,
-                });
-              }
-            }
-          });
-
-          this.group.add(lamp);
           this.physics.createStaticCylinder(sx, targetH / 2, sz, targetH, 0.25);
         });
       },
@@ -1069,63 +2538,390 @@ export class CVRCampusMap {
   }
 
   private build12MSpineTrees(): void {
+    const upgradeTreeConfigs: { x: number; z: number; variant: 1 | 2; scale: number; rotationY: number }[] = [
+      // --- Grand Entrance Gate Backdrop Canopy (Lush dense mature trees directly behind lintel beam) ---
+      // These tall canopy trees rise up directly behind the gate (z = -170 to -158) to form the signature
+      // rich dark-green leafy backdrop framing the 3D lettering and silhouetting the entrance portal
+      { x: 25.0, z: -169.5, variant: 1, scale: 1.30, rotationY: 0.80 },
+      { x: 25.0, z: -163.0, variant: 2, scale: 1.25, rotationY: 2.50 },
+      { x: 17.0, z: -170.0, variant: 2, scale: 1.32, rotationY: 1.40 },
+      { x: 17.0, z: -163.5, variant: 1, scale: 1.26, rotationY: 3.80 },
+      { x: 17.0, z: -157.0, variant: 2, scale: 1.20, rotationY: 0.90 },
+      { x: 12.5, z: -169.5, variant: 1, scale: 1.35, rotationY: 4.10 },
+      { x:  8.5, z: -169.0, variant: 2, scale: 1.28, rotationY: 2.20 },
+      { x: 33.0, z: -170.0, variant: 1, scale: 1.32, rotationY: 5.20 },
+      { x: 33.0, z: -163.5, variant: 2, scale: 1.26, rotationY: 1.90 },
+      { x: 33.0, z: -157.0, variant: 1, scale: 1.20, rotationY: 4.30 },
+      { x: 38.0, z: -169.5, variant: 2, scale: 1.32, rotationY: 3.10 },
+
+      // Central Landscaped Divider: North Segment 1 (z = -171 to -144, 3 trees)
+      { x: 25.0, z: -166.0, variant: 1, scale: 1.06, rotationY: 0.40 },
+      { x: 25.0, z: -158.0, variant: 2, scale: 1.08, rotationY: 2.10 },
+      { x: 25.0, z: -150.0, variant: 1, scale: 1.05, rotationY: 3.40 },
+
+      // Central Landscaped Divider: North Segment 2 (z = -132 to -115, 2 trees)
+      { x: 25.0, z: -128.0, variant: 1, scale: 1.07, rotationY: 4.80 },
+      { x: 25.0, z: -120.0, variant: 2, scale: 1.00, rotationY: 1.20 },
+
+      // Round Inner Junction (z = -115 to -105): Mature Shade Tree in Center of Roundabout Island
+      { x: 25.0, z: -110.0, variant: 1, scale: 1.15, rotationY: 3.14 },
+
+      // Central Landscaped Divider: Continuing Roads (z = -105 to -40, 10 trees along Main Block & CVR Park)
+      { x: 25.0, z: -100.0, variant: 1, scale: 1.06, rotationY: 1.70 },
+      { x: 25.0, z:  -94.0, variant: 2, scale: 0.98, rotationY: 3.90 },
+      { x: 25.0, z:  -88.0, variant: 1, scale: 1.07, rotationY: 0.30 },
+      { x: 25.0, z:  -82.0, variant: 1, scale: 1.05, rotationY: 2.90 },
+      { x: 25.0, z:  -76.0, variant: 2, scale: 1.00, rotationY: 5.10 },
+      { x: 25.0, z:  -70.0, variant: 1, scale: 1.06, rotationY: 1.80 },
+      { x: 25.0, z:  -64.0, variant: 1, scale: 1.07, rotationY: 4.00 },
+      { x: 25.0, z:  -58.0, variant: 2, scale: 0.99, rotationY: 0.60 },
+      { x: 25.0, z:  -52.0, variant: 1, scale: 1.05, rotationY: 2.80 },
+      { x: 25.0, z:  -46.0, variant: 1, scale: 1.04, rotationY: 5.00 },
+
+      // West Flank Roadside Trees: North Entrance Avenue (x = 17.0, z = -154 to -120, 5 trees)
+      { x: 17.0, z: -152.0, variant: 1, scale: 1.06, rotationY: 1.10 },
+      { x: 17.0, z: -144.0, variant: 1, scale: 1.05, rotationY: 3.30 },
+      { x: 17.0, z: -136.0, variant: 2, scale: 0.99, rotationY: 5.50 },
+      { x: 17.0, z: -128.0, variant: 1, scale: 1.07, rotationY: 1.80 },
+      { x: 17.0, z: -120.0, variant: 1, scale: 1.05, rotationY: 4.00 },
+
+      // West Flank Roadside Trees: Along Main Block Portico Concourse (x = 17.4, z = -100 to -46, 8 trees)
+      { x: 17.4, z: -100.0, variant: 1, scale: 1.05, rotationY: 2.40 },
+      { x: 17.4, z:  -92.0, variant: 1, scale: 1.06, rotationY: 4.60 },
+      { x: 17.4, z:  -84.0, variant: 2, scale: 0.99, rotationY: 0.90 },
+      { x: 17.4, z:  -76.0, variant: 1, scale: 1.05, rotationY: 3.10 },
+      { x: 17.4, z:  -68.0, variant: 1, scale: 1.07, rotationY: 5.30 },
+      { x: 17.4, z:  -60.0, variant: 2, scale: 1.00, rotationY: 1.50 },
+      { x: 17.4, z:  -52.0, variant: 1, scale: 1.06, rotationY: 3.70 },
+      { x: 17.4, z:  -46.0, variant: 1, scale: 1.04, rotationY: 5.90 },
+
+      // East Flank Roadside Trees: North of Bus Bay Turn (x = 32.6, z = -154, -148, 2 trees)
+      { x: 32.6, z: -154.0, variant: 1, scale: 1.06, rotationY: 4.20 },
+      { x: 32.6, z: -148.0, variant: 1, scale: 1.04, rotationY: 0.40 },
+
+      // East Flank Roadside Trees: South of Turn to Junction (x = 32.6, z = -128, -120, 2 trees)
+      { x: 32.6, z: -128.0, variant: 2, scale: 0.99, rotationY: 2.60 },
+      { x: 32.6, z: -120.0, variant: 1, scale: 1.05, rotationY: 4.80 },
+
+      // East Flank Roadside Trees: Along CVR Park perimeter (x = 32.6, z = -100 to -46, 8 trees)
+      { x: 32.6, z: -100.0, variant: 1, scale: 1.05, rotationY: 5.40 },
+      { x: 32.6, z:  -92.0, variant: 1, scale: 1.06, rotationY: 1.60 },
+      { x: 32.6, z:  -84.0, variant: 2, scale: 0.98, rotationY: 3.80 },
+      { x: 32.6, z:  -76.0, variant: 1, scale: 1.05, rotationY: 6.00 },
+      { x: 32.6, z:  -68.0, variant: 1, scale: 1.07, rotationY: 1.90 },
+      { x: 32.6, z:  -60.0, variant: 2, scale: 1.00, rotationY: 0.30 },
+      { x: 32.6, z:  -52.0, variant: 1, scale: 1.06, rotationY: 2.50 },
+      { x: 32.6, z:  -46.0, variant: 1, scale: 1.04, rotationY: 4.70 },
+    ];
+
+    // Build procedural and realistic trees
+    this.buildRemainingProceduralTrees();
+    this.buildRealisticUpgradeTrees(upgradeTreeConfigs);
+  }
+
+  /**
+   * Shared GPU vertex wind deformation for tree_variant_1/2 InstancedMeshes and matching depth shadows.
+   * Uses the exact world-space macro branch offset as EnvironmentalWind.evaluateTreeBranchOffset
+   * so perched pigeons stay locked cleanly to animated branches, plus subtle outer leaf flutter.
+   */
+  private patchRealisticTreeWindShader(shader: THREE.WebGLProgramParametersWithUniforms): void {
+    const u = this.wind.uniforms;
+    shader.uniforms.uWindEnabled = u.uWindEnabled;
+    shader.uniforms.uWindPhase = u.uWindPhase;
+    shader.uniforms.uGustPhase = u.uGustPhase;
+    shader.uniforms.uLeafPhase = u.uLeafPhase;
+    shader.uniforms.uWindDir = u.uWindDir;
+    shader.uniforms.uWindStrength = u.uWindStrength;
+    shader.vertexShader =
+      `
+      uniform float uWindEnabled;
+      uniform float uWindPhase;
+      uniform float uGustPhase;
+      uniform float uLeafPhase;
+      uniform vec2 uWindDir;
+      uniform float uWindStrength;
+    ` + shader.vertexShader;
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <begin_vertex>',
+      `
+      #include <begin_vertex>
+      #ifdef USE_INSTANCING
+      if (uWindEnabled > 0.001) {
+        float heightFactor = smoothstep(2.2, 6.2, position.y);
+        if (heightFactor > 0.0) {
+          vec3 instPos = vec3(instanceMatrix[3][0], instanceMatrix[3][1], instanceMatrix[3][2]);
+          float radialDist = length(position.xz);
+          float radialFactor = smoothstep(0.12, 0.72, radialDist + max(0.0, position.y - 3.8) * 0.25);
+          float branchWeight = heightFactor * radialFactor;
+
+          float treePhase = instPos.x * 0.13 + instPos.z * 0.19;
+          float gustWave = sin(uGustPhase - dot(instPos.xz, uWindDir) * 0.045);
+
+          float localSwayScalar = (
+            0.55 * sin(uWindPhase + treePhase) +
+            0.30 * cos(uWindPhase * 0.71 - treePhase * 1.37) +
+            0.55 * (0.5 + 0.5 * gustWave)
+          ) * uWindStrength * uWindEnabled;
+          float crossScalar = 0.22 * sin(uWindPhase * 1.18 + treePhase * 1.7 + 0.9) * uWindStrength * uWindEnabled;
+
+          float amp = 0.095 * branchWeight;
+          vec2 perpDir = vec2(-uWindDir.y, uWindDir.x);
+          vec2 branchXZ = (uWindDir * localSwayScalar + perpDir * crossScalar) * amp;
+
+          // Fine leaf-cluster flutter along outer foliage (roots and trunks remain stationary)
+          float leafWeight = smoothstep(0.55, 1.85, radialDist) * smoothstep(3.4, 5.6, position.y) * uWindEnabled;
+          float leafSeed = position.x * 2.3 + position.y * 1.9 + position.z * 2.7 + treePhase;
+          float leafF1 = sin(uLeafPhase + leafSeed);
+          float leafF2 = cos(uLeafPhase * 1.29 + leafSeed * 1.43);
+          float leafAmp = 0.018 * (0.45 + 0.55 * uWindStrength) * leafWeight;
+          vec2 totalWorldXZ = branchXZ + (uWindDir * leafF1 + perpDir * leafF2) * leafAmp;
+
+          vec2 col0XZ = vec2(instanceMatrix[0].x, instanceMatrix[0].z);
+          vec2 col2XZ = vec2(instanceMatrix[2].x, instanceMatrix[2].z);
+          float scaleSq = max(dot(col0XZ, col0XZ), 0.0001);
+          float instScale = max(length(instanceMatrix[1].xyz), 0.001);
+          float branchY = (-0.28 * dot(branchXZ, branchXZ)) / max(instScale * 2.0, 1.0);
+
+          transformed.x += dot(totalWorldXZ, col0XZ) / scaleSq;
+          transformed.z += dot(totalWorldXZ, col2XZ) / scaleSq;
+          transformed.y += branchY / instScale;
+        }
+      }
+      #endif
+      `
+    );
+  }
+
+  /**
+   * Shared GPU vertex wind shader for instanced crowns and root-anchored shrubs/flower foliage.
+   */
+  private patchSimpleVegetationWindShader(
+    shader: THREE.WebGLProgramParametersWithUniforms,
+    minLocalY: number,
+    maxLocalY: number,
+    ampScale: number
+  ): void {
+    const u = this.wind.uniforms;
+    shader.uniforms.uWindEnabled = u.uWindEnabled;
+    shader.uniforms.uWindPhase = u.uWindPhase;
+    shader.uniforms.uGustPhase = u.uGustPhase;
+    shader.uniforms.uLeafPhase = u.uLeafPhase;
+    shader.uniforms.uWindDir = u.uWindDir;
+    shader.uniforms.uWindStrength = u.uWindStrength;
+    shader.vertexShader =
+      `
+      uniform float uWindEnabled;
+      uniform float uWindPhase;
+      uniform float uGustPhase;
+      uniform float uLeafPhase;
+      uniform vec2 uWindDir;
+      uniform float uWindStrength;
+    ` + shader.vertexShader;
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <begin_vertex>',
+      `
+      #include <begin_vertex>
+      #ifdef USE_INSTANCING
+      if (uWindEnabled > 0.001) {
+        float wFactor = smoothstep(${minLocalY.toFixed(3)}, ${maxLocalY.toFixed(3)}, position.y);
+        if (wFactor > 0.0) {
+          vec3 instPos = vec3(instanceMatrix[3][0], instanceMatrix[3][1], instanceMatrix[3][2]);
+          float phase = instPos.x * 0.21 + instPos.z * 0.27;
+          float gust = sin(uGustPhase - dot(instPos.xz, uWindDir) * 0.05);
+          float primary = (0.55 * sin(uWindPhase * 1.15 + phase) + 0.45 * (0.5 + 0.5 * gust)) * uWindStrength;
+          float flutter = 0.28 * sin(uLeafPhase + phase + position.x * 3.1 + position.z * 2.7);
+          vec2 perp = vec2(-uWindDir.y, uWindDir.x);
+          vec2 worldXZ = (uWindDir * (primary + flutter) + perp * (0.25 * cos(uWindPhase + phase))) * (${ampScale.toFixed(4)} * wFactor * uWindEnabled);
+          float instScale = max(length(instanceMatrix[1].xyz), 0.001);
+          transformed.x += worldXZ.x / instScale;
+          transformed.z += worldXZ.y / instScale;
+        }
+      }
+      #endif
+      `
+    );
+  }
+
+  /**
+   * Controlled in-game integration of Sketchfab low-poly tree variants (00amza).
+   * Renders with alpha-cutout masking and two-sided foliage using InstancedMesh for maximum efficiency.
+   * Features GPU wind movement with shared uniforms and stationary trunks/roots.
+   */
+  private buildRealisticUpgradeTrees(
+    configs: { x: number; z: number; variant: 1 | 2; scale: number; rotationY: number }[]
+  ): void {
+    const v1Configs = configs.filter((c) => c.variant === 1);
+    const v2Configs = configs.filter((c) => c.variant === 2);
+
+    // Static physics cylinder colliders for all tree trunks
+    configs.forEach((cfg) => {
+      this.physics.createStaticCylinder(cfg.x, 1.6 * cfg.scale, cfg.z, 3.2 * cfg.scale, 0.25 * cfg.scale);
+    });
+
+    const setupVariant = (url: string, variantConfigs: typeof configs, variantId: number) => {
+      this.gltfLoader.load(
+        url,
+        (gltf) => {
+          let mesh: THREE.Mesh | undefined;
+          gltf.scene.traverse((child) => {
+            if ((child as THREE.Mesh).isMesh && !mesh) {
+              mesh = child as THREE.Mesh;
+            }
+          });
+
+          if (!mesh) {
+            console.warn(`No mesh found in tree asset: ${url}`);
+            return;
+          }
+
+          const geometry = mesh.geometry.clone();
+          const originalMat = mesh.material as THREE.MeshStandardMaterial;
+          const material = originalMat.clone();
+
+          material.transparent = false;
+          material.alphaTest = 0.5;
+          material.depthWrite = true;
+          material.alphaToCoverage = true;
+          material.side = THREE.DoubleSide;
+          material.roughness = 0.78;
+          material.metalness = 0.0;
+          material.envMapIntensity = 0.55;
+
+          material.customProgramCacheKey = () => `treeWindMat_u13_v${variantId}`;
+          material.onBeforeCompile = (shader) => {
+            this.patchRealisticTreeWindShader(shader);
+          };
+          material.needsUpdate = true;
+
+          const instancedMesh = new THREE.InstancedMesh(geometry, material, variantConfigs.length);
+          instancedMesh.castShadow = true;
+          instancedMesh.receiveShadow = false;
+
+          const depthMat = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking });
+          depthMat.map = material.map;
+          depthMat.alphaTest = 0.5;
+          depthMat.customProgramCacheKey = () => `treeWindDepth_u13_v${variantId}`;
+          depthMat.onBeforeCompile = (shader) => {
+            this.patchRealisticTreeWindShader(shader);
+          };
+          instancedMesh.customDepthMaterial = depthMat;
+
+          const dummy = new THREE.Object3D();
+          variantConfigs.forEach((cfg, idx) => {
+            dummy.position.set(cfg.x, 0, cfg.z);
+            dummy.scale.set(cfg.scale, cfg.scale, cfg.scale);
+            dummy.rotation.set(0, cfg.rotationY, 0);
+            dummy.updateMatrix();
+            instancedMesh.setMatrixAt(idx, dummy.matrix);
+          });
+
+          instancedMesh.instanceMatrix.needsUpdate = true;
+          instancedMesh.computeBoundingSphere();
+          this.group.add(instancedMesh);
+          this.disposables.push(geometry, material, depthMat, instancedMesh);
+        },
+        undefined,
+        (err) => {
+          console.warn(`Failed to load realistic tree model ${url}:`, err);
+        }
+      );
+    };
+
+    setupVariant('/models/trees/tree_variant_1.glb', v1Configs, 1);
+    setupVariant('/models/trees/tree_variant_2.glb', v2Configs, 2);
+  }
+
+  private buildRemainingProceduralTrees(): void {
     const treePositions: { x: number; z: number; tiltX: number; scale: number }[] = [];
-    for (let z = -140; z <= 100; z += 12) {
+    for (let z = -32; z <= 100; z += 12) {
       treePositions.push({ x: 17.5, z, tiltX: 0.1, scale: 1.05 + Math.random() * 0.2 });
       treePositions.push({ x: 32.5, z, tiltX: -0.1, scale: 1.05 + Math.random() * 0.2 });
     }
 
-    const count = treePositions.length;
-    const trunkGeo = new THREE.CylinderGeometry(0.35, 0.52, 5.2, 8);
-    const branchGeo = new THREE.CylinderGeometry(0.22, 0.32, 3.4, 6);
-    this.disposables.push(trunkGeo, branchGeo);
+    const trunkGeo = new THREE.CylinderGeometry(0.2, 0.35, 3.8, 6);
+    this.disposables.push(trunkGeo);
+    const foliageGeo = new THREE.DodecahedronGeometry(2.2, 1);
+    this.disposables.push(foliageGeo);
 
-    const trunkMesh = new THREE.InstancedMesh(trunkGeo, this.materials.treeTrunk, count);
-    const branchMesh = new THREE.InstancedMesh(branchGeo, this.materials.treeTrunk, count);
-    trunkMesh.castShadow = true;
-    branchMesh.castShadow = true;
+    const canopyMat = this.materials.treeFoliage1.clone();
+    canopyMat.customProgramCacheKey = () => 'procCanopyWind_u13';
+    canopyMat.onBeforeCompile = (shader) => {
+      this.patchSimpleVegetationWindShader(shader, -2.0, 2.2, 0.068);
+    };
+    const canopyDepthMat = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking });
+    canopyDepthMat.customProgramCacheKey = () => 'procCanopyDepthWind_u13';
+    canopyDepthMat.onBeforeCompile = (shader) => {
+      this.patchSimpleVegetationWindShader(shader, -2.0, 2.2, 0.068);
+    };
+    this.disposables.push(canopyMat, canopyDepthMat);
 
-    const foliageGeo = new THREE.DodecahedronGeometry(3.6, 0);
-    const upperGeo = new THREE.DodecahedronGeometry(2.8, 0);
-    this.disposables.push(foliageGeo, upperGeo);
-
-    const foliageMesh = new THREE.InstancedMesh(foliageGeo, this.materials.treeFoliage1, count);
-    const upperMesh = new THREE.InstancedMesh(upperGeo, this.materials.treeFoliage2, count);
+    const trunkMesh = new THREE.InstancedMesh(trunkGeo, this.materials.treeTrunk, treePositions.length);
+    const foliageMesh = new THREE.InstancedMesh(foliageGeo, canopyMat, treePositions.length);
+    foliageMesh.customDepthMaterial = canopyDepthMat;
+    trunkMesh.castShadow = false;
     foliageMesh.castShadow = true;
-    upperMesh.castShadow = true;
 
     const dummy = new THREE.Object3D();
     treePositions.forEach((tp, i) => {
-      dummy.position.set(tp.x, 2.6 * tp.scale, tp.z);
+      dummy.position.set(tp.x, 1.9 * tp.scale, tp.z);
       dummy.scale.set(tp.scale, tp.scale, tp.scale);
-      dummy.rotation.set(0, Math.random() * Math.PI, tp.tiltX);
+      dummy.rotation.set(tp.tiltX, 0, 0);
       dummy.updateMatrix();
       trunkMesh.setMatrixAt(i, dummy.matrix);
 
-      dummy.position.set(tp.x + (tp.tiltX > 0 ? 0.9 : -0.9), 4.4 * tp.scale, tp.z);
-      dummy.rotation.set(0, 0, tp.tiltX * 2.8);
-      dummy.updateMatrix();
-      branchMesh.setMatrixAt(i, dummy.matrix);
-
-      dummy.position.set(tp.x + (tp.tiltX > 0 ? 1.6 : -1.6), 5.8 * tp.scale, tp.z);
-      dummy.rotation.set(0, Math.random() * Math.PI, 0);
+      dummy.position.set(tp.x, (3.8 + 1.2) * tp.scale, tp.z);
       dummy.updateMatrix();
       foliageMesh.setMatrixAt(i, dummy.matrix);
 
-      dummy.position.set(tp.x + (tp.tiltX > 0 ? 2.6 : -2.6), 7.8 * tp.scale, tp.z);
-      dummy.updateMatrix();
-      upperMesh.setMatrixAt(i, dummy.matrix);
-
-      this.physics.createStaticCylinder(tp.x, 2.6 * tp.scale, tp.z, 5.2 * tp.scale, 0.45 * tp.scale);
+      this.physics.createStaticCylinder(tp.x, 1.9 * tp.scale, tp.z, 3.8 * tp.scale, 0.3 * tp.scale);
     });
 
     trunkMesh.instanceMatrix.needsUpdate = true;
-    branchMesh.instanceMatrix.needsUpdate = true;
     foliageMesh.instanceMatrix.needsUpdate = true;
-    upperMesh.instanceMatrix.needsUpdate = true;
+    trunkMesh.computeBoundingSphere();
+    foliageMesh.computeBoundingSphere();
+    this.group.add(trunkMesh, foliageMesh);
+    this.disposables.push(trunkMesh, foliageMesh);
+  }
 
-    this.group.add(trunkMesh, branchMesh, foliageMesh, upperMesh);
-    this.disposables.push(trunkMesh, branchMesh, foliageMesh, upperMesh);
+  private buildInstancedShrubsAndFlowers(): void {
+    if (this.instancedShrubs.length === 0) return;
+
+    const specs: { key: 'shrub' | 'yellow' | 'lime'; baseMat: THREE.MeshStandardMaterial; detail: number }[] = [
+      { key: 'shrub', baseMat: this.materials.hedgeGreen, detail: 1 },
+      { key: 'yellow', baseMat: this.materials.flowerYellow, detail: 0 },
+      { key: 'lime', baseMat: this.materials.flowerLime, detail: 0 },
+    ];
+
+    const dummy = new THREE.Object3D();
+    for (const spec of specs) {
+      const items = this.instancedShrubs.filter((s) => s.matType === spec.key);
+      if (items.length === 0) continue;
+
+      const geo = new THREE.DodecahedronGeometry(0.38, spec.detail);
+      const mat = spec.baseMat.clone();
+      mat.customProgramCacheKey = () => `shrubWind_u13_${spec.key}`;
+      mat.onBeforeCompile = (shader) => {
+        this.patchSimpleVegetationWindShader(shader, -0.30, 0.38, 0.026);
+      };
+
+      const inst = new THREE.InstancedMesh(geo, mat, items.length);
+      inst.castShadow = false;
+      inst.receiveShadow = true;
+
+      items.forEach((item, idx) => {
+        dummy.position.set(item.x, item.y, item.z);
+        dummy.rotation.set(0, (idx * 1.13) % (Math.PI * 2), 0);
+        dummy.scale.setScalar(item.scale);
+        dummy.updateMatrix();
+        inst.setMatrixAt(idx, dummy.matrix);
+      });
+
+      inst.instanceMatrix.needsUpdate = true;
+      inst.computeBoundingSphere();
+      this.group.add(inst);
+      this.disposables.push(geo, mat, inst);
+    }
   }
 
   private buildWaypointChevron(x: number, y: number, z: number): void {
@@ -1151,33 +2947,56 @@ export class CVRCampusMap {
   // --- 5. Landscape Garden & High-Tension Transmission Tower (x = 34 to 124, z = -130 to -45) ---
 
   private buildLandscapeGardenAndHTTower(): void {
-    // Lush Green Garden Lawn
-    const lawnGeo = new THREE.PlaneGeometry(90, 85);
+    // CVR PARK (Botanical Park & Landscaped Garden)
+    // Located on LEFT (East: x in [34.0, 125.0], z in [-104.0, -40.0], area 91m x 64m)
+    // Directly opposite Main Block (x in [-29.0, 18.0], z in [-103.0, -47.0]) across continuing parallel roads
+    const lawnGeo = new THREE.PlaneGeometry(91.0, 64.0);
     this.disposables.push(lawnGeo);
     const lawnMesh = new THREE.Mesh(lawnGeo, this.materials.grassLawn);
     lawnMesh.rotation.x = -Math.PI / 2;
-    lawnMesh.position.set(79, 0.018, -87.5);
+    lawnMesh.position.set(79.5, 0.018, -72.0);
     lawnMesh.receiveShadow = true;
     this.group.add(lawnMesh);
 
-    // Sculpted Trimmed Hedges
+    // Park Perimeter Trimmed Hedges
     const hedges = [
-      { x: 79, z: -120, w: 70, d: 2.0 },
-      { x: 79, z: -55, w: 70, d: 2.0 },
-      { x: 45, z: -87.5, w: 2.0, d: 60 },
-      { x: 115, z: -87.5, w: 2.0, d: 60 },
+      { x: 79.5, z: -103.0, w: 91.0, d: 2.0 },
+      { x: 79.5, z: -41.0,  w: 91.0, d: 2.0 },
+      { x: 35.0, z: -72.0,  w: 2.0,  d: 62.0 },
+      { x: 124.0, z: -72.0, w: 2.0,  d: 62.0 },
     ];
     hedges.forEach((h) => {
       this.addBox(h.x, 0.5, h.z, h.w, 1.0, h.d, this.materials.hedgeGreen);
     });
 
-    // Circular Central Fountain
-    this.addCylinder(79, 0.4, -87.5, 7.5, 0.8, this.materials.planterStone);
-    this.addCylinder(79, 0.65, -87.5, 6.8, 0.4, this.materials.waterCanal, false);
-    this.addCylinder(79, 1.5, -87.5, 1.8, 2.2, this.materials.planterStone);
+    // Paved Walking Pathways inside CVR Park
+    this.createRoad(79.5, -72.0, 3.5, 87.0, Math.PI / 2, this.materials.avenueConcrete, false);
+    this.createRoad(79.5, -72.0, 3.5, 58.0, 0, this.materials.avenueConcrete, false);
 
-    // 36m Tall Steel Lattice High-Tension Transmission Tower at North-East corner (x = 142, z = -142)
-    this.buildLatticeTransmissionTower(142, -142);
+    // Natural Flower Planters & Shrub Clusters
+    const shrubOffsets = [
+      { dx: -18, dz: -14 }, { dx: 18, dz: -14 }, { dx: 0, dz: 0 },
+      { dx: -18, dz: 14 },  { dx: 18, dz: 14 },  { dx: -10, dz: -5 }, { dx: 10, dz: 5 }
+    ];
+    shrubOffsets.forEach((off) => {
+      this.instancedShrubs.push({
+        x: 79.5 + off.dx,
+        y: 0.45,
+        z: -72.0 + off.dz,
+        scale: 0.85 / 0.38,
+        matType: 'shrub',
+      });
+    });
+
+    // CVR Park Entrance Signboard facing the continuing parallel roads (x = 35.0, z = -75.0)
+    const parkSignTex = this.createDirectionalSignTexture('CVR PARK', 'BOTANICAL GARDEN', '★');
+    const parkSignMesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(3.6, 1.0),
+      this.createCampusSignMaterial(parkSignTex, false, 0.22)
+    );
+    parkSignMesh.position.set(34.8, 1.8, -75.0);
+    parkSignMesh.rotation.y = -Math.PI / 2; // Face West toward avenue & Main Block
+    this.group.add(parkSignMesh);
   }
 
   private buildLatticeTransmissionTower(x: number, z: number): void {
@@ -1195,15 +3014,13 @@ export class CVRCampusMap {
 
     corners.forEach((c) => {
       const legGeo = new THREE.CylinderGeometry(0.12, 0.22, towerH, 8);
-      this.disposables.push(legGeo);
-      const leg = new THREE.Mesh(legGeo, mat);
       const angleX = -c.sz * Math.atan2((baseW - topW) / 2, towerH);
       const angleZ = c.sx * Math.atan2((baseW - topW) / 2, towerH);
-      leg.position.set(x + (c.sx * (baseW + topW)) / 4, towerH / 2, z + (c.sz * (baseW + topW)) / 4);
-      leg.rotation.x = angleX;
-      leg.rotation.z = angleZ;
-      leg.castShadow = true;
-      this.group.add(leg);
+      this.batchObj.position.set(x + (c.sx * (baseW + topW)) / 4, towerH / 2, z + (c.sz * (baseW + topW)) / 4);
+      this.batchObj.rotation.set(angleX, 0, angleZ);
+      this.batchObj.scale.set(1, 1, 1);
+      this.batchObj.updateMatrix();
+      this.enqueueStaticGeometry(legGeo, mat, true, true, this.batchObj.matrix);
     });
 
     // Horizontal bracing tiers
@@ -1264,7 +3081,7 @@ export class CVRCampusMap {
     // 3. Royal Blue "MAIN BLOCK" Signboard on East Fascia of Portico Canopy
     const signMesh = new THREE.Mesh(
       new THREE.PlaneGeometry(12.5, 1.4),
-      new THREE.MeshBasicMaterial({ map: this.mainBlockSignTex, side: THREE.DoubleSide })
+      this.createCampusSignMaterial(this.mainBlockSignTex, false, 0.24)
     );
     signMesh.rotation.y = Math.PI / 2; // Face East (+X)
     signMesh.position.set(18.22, 8.35, bz);
@@ -1273,7 +3090,7 @@ export class CVRCampusMap {
     // 4. Roofline Lettering "CVR COLLEGE OF ENGINEERING"
     const roofSignMesh = new THREE.Mesh(
       new THREE.PlaneGeometry(24.0, 1.8),
-      new THREE.MeshBasicMaterial({ map: this.roofSignTex, transparent: true, side: THREE.DoubleSide })
+      this.createCampusSignMaterial(this.roofSignTex, true, 0.26)
     );
     roofSignMesh.rotation.y = Math.PI / 2; // Face East (+X)
     roofSignMesh.position.set(bx + 19.5, bHeight + 1.2, bz);
@@ -1296,7 +3113,7 @@ export class CVRCampusMap {
     // PG Block Blue Signboard on East Facade facing the 12m Divider Road
     const pgSignMesh = new THREE.Mesh(
       new THREE.PlaneGeometry(10.0, 1.3),
-      new THREE.MeshBasicMaterial({ map: this.pgBlockSignTex, side: THREE.DoubleSide })
+      this.createCampusSignMaterial(this.pgBlockSignTex, false, 0.24)
     );
     pgSignMesh.rotation.y = Math.PI / 2; // Face East
     pgSignMesh.position.set(-43.8, 12.0, -75);
@@ -1315,7 +3132,7 @@ export class CVRCampusMap {
     // First Year Block Blue Signboard
     const fySignMesh = new THREE.Mesh(
       new THREE.PlaneGeometry(11.0, 1.3),
-      new THREE.MeshBasicMaterial({ map: this.firstYearSignTex, side: THREE.DoubleSide })
+      this.createCampusSignMaterial(this.firstYearSignTex, false, 0.24)
     );
     fySignMesh.rotation.y = Math.PI / 2;
     fySignMesh.position.set(-43.8, 12.0, -10);
@@ -1337,7 +3154,7 @@ export class CVRCampusMap {
     // Central Library Signboard on East Facade facing 12m Spine
     const libSignMesh = new THREE.Mesh(
       new THREE.PlaneGeometry(11.0, 1.3),
-      new THREE.MeshBasicMaterial({ map: this.librarySignTex, side: THREE.DoubleSide })
+      this.createCampusSignMaterial(this.librarySignTex, false, 0.24)
     );
     libSignMesh.rotation.y = Math.PI / 2;
     libSignMesh.position.set(9.1, 9.0, -23);
@@ -1363,7 +3180,7 @@ export class CVRCampusMap {
     // CSE BLOCK Signboard on West Facade facing the 12M Spine Avenue
     const cseSignMesh = new THREE.Mesh(
       new THREE.PlaneGeometry(9.0, 1.3),
-      new THREE.MeshBasicMaterial({ map: this.cseSignTex, side: THREE.DoubleSide })
+      this.createCampusSignMaterial(this.cseSignTex, false, 0.24)
     );
     cseSignMesh.rotation.y = -Math.PI / 2; // Face West
     cseSignMesh.position.set(33.9, 12.0, -23);
@@ -1469,19 +3286,19 @@ export class CVRCampusMap {
     southCanal.position.set(36, 0.012, 115);
     this.group.add(southCanal);
 
-    // Campus Perimeter Boundary Walls (Height 2.4m, thickness 0.45m)
-    // North Boundary Wall (z = -170, with openings for Main Gate x = 11 to 38 and Bus Bay)
-    this.addBox(-95, 1.2, -170, 190, 2.4, 0.45, this.materials.boundaryWall);
-    this.addBox(170, 1.2, -170, 70, 2.4, 0.45, this.materials.boundaryWall);
+    // Campus Perimeter Boundary Walls (Height 2.4m, thickness 0.45m along z = -172.0)
+    // North Boundary Wall:
+    this.addBox(-98.75, 1.2, -172.0, 182.5, 2.4, 0.45, this.materials.boundaryWall); // West of bus exit (x = -190.0 to -7.5)
+    this.addBox(96.65, 1.2, -172.0, 126.7, 2.4, 0.45, this.materials.boundaryWall);  // East of main gate (x = 33.3 to 160.0)
 
-    // East Boundary Wall (x = 160, z = -170 to 125, length 295m)
-    this.addBox(160, 1.2, -22.5, 0.45, 2.4, 295, this.materials.boundaryWall);
+    // East Boundary Wall (x = 160, z = -172 to 125, length 297m, center z = -23.5)
+    this.addBox(160, 1.2, -23.5, 0.45, 2.4, 297, this.materials.boundaryWall);
 
     // South Boundary Wall (z = 125, x = -190 to 160, length 350m)
     this.addBox(-15, 1.2, 125, 350, 2.4, 0.45, this.materials.boundaryWall);
 
-    // West Boundary Wall (x = -190, z = -170 to 125, length 295m)
-    this.addBox(-190, 1.2, -22.5, 0.45, 2.4, 295, this.materials.boundaryWall);
+    // West Boundary Wall (x = -190, z = -172 to 125, length 297m, center z = -23.5)
+    this.addBox(-190, 1.2, -23.5, 0.45, 2.4, 297, this.materials.boundaryWall);
   }
 
   // --- Dynamic Zone Detection (Matching True CAD 14 Zones) ---
@@ -1599,6 +3416,204 @@ export class CVRCampusMap {
       zone: 'Central 12M Spine Avenue',
       description: '12m Wide Central Avenue Spine connecting North Gate to Campus Core',
     };
+  }
+
+  private createRadialLightPoolTexture(): THREE.CanvasTexture {
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d')!;
+    const cx = 64;
+    const cy = 64;
+    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 62);
+    grad.addColorStop(0.0, 'rgba(255, 255, 255, 1.0)');
+    grad.addColorStop(0.22, 'rgba(255, 255, 255, 0.72)');
+    grad.addColorStop(0.50, 'rgba(255, 255, 255, 0.30)');
+    grad.addColorStop(0.78, 'rgba(255, 255, 255, 0.08)');
+    grad.addColorStop(1.0, 'rgba(0, 0, 0, 0.0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 128, 128);
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    this.disposables.push(tex);
+    return tex;
+  }
+
+  private buildDynamicCampusNightLighting(): void {
+    const poolTex = this.createRadialLightPoolTexture();
+    const poolGeo = new THREE.PlaneGeometry(1, 1);
+    poolGeo.rotateX(-Math.PI / 2);
+    const poolMat = new THREE.MeshBasicMaterial({
+      map: poolTex,
+      transparent: true,
+      opacity: 0,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2,
+    });
+    this.lightPoolMat = poolMat;
+    this.disposables.push(poolGeo, poolMat);
+
+    const warmStreetColor = new THREE.Color(0xffdba4);
+    const parkWarmColor = new THREE.Color(0xffd28c);
+    const neutralBayColor = new THREE.Color(0xe2edff);
+    const portalWarmColor = new THREE.Color(0xffe4b5);
+
+    const pools: { x: number; y: number; z: number; radius: number; color: THREE.Color; strength: number }[] = [
+      // Main Entrance Portal, Forecourt, Emblem Monument, Security Cabin & Bus Exit
+      { x: 25.0, y: 0.04, z: -172.0, radius: 15.0, color: portalWarmColor, strength: 0.44 },
+      { x: 25.0, y: 0.04, z: -178.5, radius: 11.5, color: portalWarmColor, strength: 0.26 },
+      { x: 13.1, y: 0.04, z: -176.2, radius: 10.5, color: portalWarmColor, strength: 0.38 },
+      { x: 6.2, y: 0.04, z: -173.5, radius: 8.5, color: portalWarmColor, strength: 0.32 },
+      { x: -3.75, y: 0.04, z: -172.0, radius: 10.0, color: neutralBayColor, strength: 0.26 },
+
+      // Existing 9 Spine Avenue Streetlights (preserving darker unlit intervals between poles)
+      ...[-145, -115, -85, -55, -25, 5, 35, 65, 95].map((sz, idx) => ({
+        x: 25 + (idx % 2 === 0 ? 1 : -1) * 4.4,
+        y: 0.04,
+        z: sz,
+        radius: 13.0,
+        color: warmStreetColor,
+        strength: 0.38,
+      })),
+
+      // Junctions, Straight Pedestrian Walkway & Crosswalks
+      { x: 25.0, y: 0.04, z: -154.0, radius: 11.0, color: portalWarmColor, strength: 0.30 },
+      { x: 8.0, y: 0.17, z: -156.0, radius: 8.0, color: warmStreetColor, strength: 0.26 },
+      { x: 8.0, y: 0.17, z: -133.0, radius: 8.0, color: warmStreetColor, strength: 0.26 },
+      { x: 8.0, y: 0.17, z: -110.0, radius: 9.0, color: portalWarmColor, strength: 0.30 },
+      { x: 25.0, y: 0.04, z: -110.0, radius: 14.5, color: portalWarmColor, strength: 0.34 },
+      { x: 25.0, y: 0.04, z: -38.0, radius: 14.0, color: portalWarmColor, strength: 0.32 },
+      { x: -38.0, y: 0.04, z: -75.0, radius: 13.0, color: portalWarmColor, strength: 0.30 },
+      { x: -38.0, y: 0.04, z: -38.0, radius: 13.0, color: warmStreetColor, strength: 0.28 },
+
+      // Bus Parking Ground (evenly distributed subtle pools across 60 parked buses & center lane)
+      { x: 56.0, y: 0.04, z: -157.0, radius: 22.0, color: neutralBayColor, strength: 0.13 },
+      { x: 92.0, y: 0.04, z: -157.0, radius: 22.0, color: neutralBayColor, strength: 0.13 },
+      { x: 128.0, y: 0.04, z: -157.0, radius: 22.0, color: neutralBayColor, strength: 0.13 },
+      { x: 56.0, y: 0.04, z: -124.0, radius: 22.0, color: neutralBayColor, strength: 0.13 },
+      { x: 92.0, y: 0.04, z: -124.0, radius: 22.0, color: neutralBayColor, strength: 0.13 },
+      { x: 128.0, y: 0.04, z: -124.0, radius: 22.0, color: neutralBayColor, strength: 0.13 },
+      { x: 74.0, y: 0.04, z: -138.0, radius: 20.0, color: neutralBayColor, strength: 0.15 },
+      { x: 110.0, y: 0.04, z: -138.0, radius: 20.0, color: neutralBayColor, strength: 0.15 },
+
+      // CVR Park Peaceful Pathway Lighting
+      { x: 55.0, y: 0.045, z: -72.0, radius: 11.0, color: parkWarmColor, strength: 0.28 },
+      { x: 79.5, y: 0.045, z: -72.0, radius: 12.5, color: parkWarmColor, strength: 0.30 },
+      { x: 104.0, y: 0.045, z: -72.0, radius: 11.0, color: parkWarmColor, strength: 0.28 },
+      { x: 79.5, y: 0.045, z: -88.0, radius: 10.5, color: parkWarmColor, strength: 0.26 },
+      { x: 79.5, y: 0.045, z: -56.0, radius: 10.5, color: parkWarmColor, strength: 0.26 },
+
+      // Academic Building Entrances (Main Block, PG Block, First Year, Library, CSE, Hostel)
+      { x: 14.5, y: 0.52, z: -75.0, radius: 13.5, color: portalWarmColor, strength: 0.38 },
+      { x: -41.5, y: 0.04, z: -75.0, radius: 12.0, color: portalWarmColor, strength: 0.34 },
+      { x: -41.5, y: 0.04, z: -10.0, radius: 11.0, color: portalWarmColor, strength: 0.28 },
+      { x: 11.0, y: 0.04, z: -23.0, radius: 11.0, color: portalWarmColor, strength: 0.30 },
+      { x: 32.5, y: 0.04, z: -23.0, radius: 12.0, color: neutralBayColor, strength: 0.26 },
+      { x: -155.0, y: 0.04, z: 96.0, radius: 14.0, color: warmStreetColor, strength: 0.28 },
+    ];
+
+    const poolMesh = new THREE.InstancedMesh(poolGeo, poolMat, pools.length);
+    poolMesh.visible = false;
+    poolMesh.frustumCulled = false;
+
+    const dummy = new THREE.Object3D();
+    const scaledColor = new THREE.Color();
+    pools.forEach((p, idx) => {
+      dummy.position.set(p.x, p.y, p.z);
+      dummy.rotation.set(0, 0, 0);
+      dummy.scale.set(p.radius * 2, 1, p.radius * 2);
+      dummy.updateMatrix();
+      poolMesh.setMatrixAt(idx, dummy.matrix);
+      scaledColor.copy(p.color).multiplyScalar(p.strength);
+      poolMesh.setColorAt(idx, scaledColor);
+    });
+    poolMesh.instanceMatrix.needsUpdate = true;
+    if (poolMesh.instanceColor) poolMesh.instanceColor.needsUpdate = true;
+
+    this.lightPoolMesh = poolMesh;
+    this.group.add(poolMesh);
+    this.disposables.push(poolMesh);
+
+    // 10 Selective Non-Shadow Dynamic PointLights for realistic architectural/vehicle/avatar relief
+    const pointConfigs: {
+      x: number;
+      y: number;
+      z: number;
+      color: number;
+      intensity: number;
+      distance: number;
+      decay: number;
+    }[] = [
+      // Main Entrance Portal Under-Lintel (wood pillars, wrought-iron gates, road)
+      { x: 25.0, y: 5.4, z: -172.0, color: 0xffe4b2, intensity: 30, distance: 26, decay: 1.55 },
+      // Original CVR Emblem, Bronze Plaque, Ashlar Planter & Sandstone Wall
+      { x: 13.1, y: 4.8, z: -176.0, color: 0xfff0d2, intensity: 28, distance: 18, decay: 1.55 },
+      // Metallic 3D "CVR COLLEGE OF ENGINEERING" Lettering & Gate Top
+      { x: 25.0, y: 8.8, z: -178.0, color: 0xfff5e0, intensity: 42, distance: 30, decay: 1.30 },
+      // Entrance Avenue North Streetlight
+      { x: 25.0, y: 6.2, z: -145.0, color: 0xffdfab, intensity: 22, distance: 26, decay: 1.60 },
+      // Round Inner Junction & Crosswalk
+      { x: 25.0, y: 6.2, z: -110.0, color: 0xffe8c8, intensity: 24, distance: 28, decay: 1.60 },
+      // Bus Parking Ground West Overhead Fill (even, non-glaring)
+      { x: 64.0, y: 12.0, z: -143.0, color: 0xe6effc, intensity: 44, distance: 56, decay: 1.35 },
+      // Bus Parking Ground East Overhead Fill (even, non-glaring)
+      { x: 116.0, y: 12.0, z: -143.0, color: 0xe6effc, intensity: 44, distance: 56, decay: 1.35 },
+      // Main Block Double-Height East Portico & Steps
+      { x: 15.5, y: 6.4, z: -75.0, color: 0xffe5b8, intensity: 34, distance: 28, decay: 1.55 },
+      // PG Block East Entrance & Signboard
+      { x: -41.5, y: 6.8, z: -75.0, color: 0xffe9c8, intensity: 32, distance: 28, decay: 1.55 },
+      // CVR Park Central Pathway & Landscaping
+      { x: 79.5, y: 5.5, z: -72.0, color: 0xffd9a0, intensity: 26, distance: 34, decay: 1.65 },
+    ];
+
+    pointConfigs.forEach((cfg) => {
+      const light = new THREE.PointLight(cfg.color, 0, cfg.distance, cfg.decay);
+      light.position.set(cfg.x, cfg.y, cfg.z);
+      light.castShadow = false;
+      light.visible = false;
+      this.group.add(light);
+      this.dynamicNightLights.push({ light, maxIntensity: cfg.intensity });
+      this.disposables.push(light);
+    });
+  }
+
+  public setNightLightingFactor(factor: number): void {
+    const f = THREE.MathUtils.clamp(factor, 0, 1);
+    if (Math.abs(f - this.lastNightFactor) < 0.002) return;
+    this.lastNightFactor = f;
+
+    this.windowNightUniform.value = f;
+
+    if (this.lampEmissiveMat) {
+      this.lampEmissiveMat.emissiveIntensity = f * 2.0;
+    }
+    if (this.gateDownlightMat) {
+      this.gateDownlightMat.emissiveIntensity = f * 2.2;
+    }
+    for (const entry of this.signEmissiveMats) {
+      entry.mat.emissiveIntensity = f * entry.scale;
+    }
+
+    const isLit = f > 0.003;
+    if (this.lightPoolMesh && this.lightPoolMat) {
+      this.lightPoolMesh.visible = isLit;
+      this.lightPoolMat.opacity = f;
+    }
+
+    for (const item of this.dynamicNightLights) {
+      item.light.visible = isLit;
+      item.light.intensity = isLit ? item.maxIntensity * f : 0;
+    }
+  }
+
+  public update(dt: number): void {
+    if (this.waypointChevron) {
+      this.waypointChevron.rotation.y += dt * 1.2;
+    }
   }
 
   public dispose(): void {

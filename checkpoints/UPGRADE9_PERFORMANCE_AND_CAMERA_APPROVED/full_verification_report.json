@@ -1,0 +1,146 @@
+{
+  "gameplay": {
+    "pointerLockAndEscape": {
+      "afterClick": {
+        "pointerLockElement": true,
+        "isPointerLocked": true
+      },
+      "afterEscape": {
+        "pointerLockElement": true,
+        "isPointerLocked": true
+      }
+    },
+    "mouseLook": {
+      "preMouse": {
+        "theta": 3.141592653589793,
+        "pitch": 0.15079632679489663
+      },
+      "postMouse": {
+        "theta": 2.8535926535897933,
+        "pitch": 0.3907963267948966
+      },
+      "deltaTheta": -0.288,
+      "deltaPitch": 0.24,
+      "passed": true
+    },
+    "locomotion": {
+      "walkDeltaZ": 1.768,
+      "walkSpeedSample": 2.55,
+      "sprintSpeedSample": 6.05,
+      "isSprinting": true,
+      "jumpPreY": 0.83,
+      "jumpPeakY": 1.583,
+      "jumpDeltaY": 0.753,
+      "sawAirborne": true,
+      "landedGrounded": true,
+      "landedY": 0.83,
+      "strafeADeltaX": 1.264,
+      "strafeDDeltaX": -1.26,
+      "backSDeltaZ": -1.264
+    },
+    "resetKeyR": {
+      "pos": {
+        "x": 25,
+        "y": 0.8300000429153442,
+        "z": -184
+      },
+      "theta": 3.142,
+      "passed": true
+    },
+    "buildingCollision": {
+      "pillarCenterZ": -172,
+      "pillarNorthFaceZ": -172.5,
+      "playerStoppedAtZ": -172.85,
+      "playerY": 0.83,
+      "passed": true
+    },
+    "busCollision": {
+      "bus02CenterZ": -164.2,
+      "bus02SouthFaceZ": -162.8,
+      "playerStoppedAtZ": -162.45,
+      "passed": true
+    },
+    "characterSwitching": {
+      "aaravName": "Remy",
+      "aaravMovedZ": 1.267,
+      "remyRestoredName": "Remy",
+      "passed": false
+    },
+    "vehicles": {
+      "busEntered": {
+        "isDriving": true,
+        "vehicleId": "cvr-bus",
+        "pos": {
+          "x": 50.25,
+          "y": 1.5499769449234009,
+          "z": -168
+        }
+      },
+      "busMovedDist": 3.66,
+      "busExited": {
+        "isDriving": false,
+        "playerVisible": true
+      },
+      "carDriven": {
+        "isDriving": true,
+        "vehicleId": "campus-car",
+        "speed": 18.300000000000022,
+        "pos": {
+          "x": 29,
+          "y": 0.724973738193512,
+          "z": -129.09576416015625
+        }
+      },
+      "passed": true
+    }
+  },
+  "performance": {
+    "wallClock60s_1280x720_DPR1": {
+      "wallClockDurationSec": 60.01,
+      "totalRafFrames": 3601,
+      "avgFps": 60,
+      "low1PercentFps": 59.5,
+      "low01PercentFps": 59.5,
+      "minFps": 59.5,
+      "avgFrameTimeMs": 16.67,
+      "minFrameTimeMs": 16.5,
+      "p99FrameTimeMs": 16.8,
+      "p999FrameTimeMs": 16.8,
+      "maxFrameTimeMs": 16.8,
+      "avgDrawCalls": 155,
+      "minDrawCalls": 88,
+      "maxDrawCalls": 284,
+      "avgTriangles": 682226,
+      "minTriangles": 416282,
+      "maxTriangles": 1308659,
+      "drawingBufferResolution": "1280x720",
+      "devicePixelRatio": 1,
+      "windowDevicePixelRatio": 1,
+      "memory": {
+        "geometries": 150,
+        "textures": 80
+      }
+    },
+    "resolutionComparison": {
+      "dpr2": {
+        "dpr": 2,
+        "resolution": "2560x1440",
+        "frames": 600,
+        "avgFps": 60,
+        "low1PercentFps": 59.5,
+        "avgFrameTimeMs": 16.67,
+        "p99FrameTimeMs": 16.8
+      },
+      "dpr15": {
+        "dpr": 1.5,
+        "resolution": "1920x1080",
+        "frames": 600,
+        "avgFps": 60,
+        "low1PercentFps": 59.5,
+        "avgFrameTimeMs": 16.67,
+        "p99FrameTimeMs": 16.8
+      }
+    }
+  },
+  "errors": []
+}

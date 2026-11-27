@@ -1,0 +1,427 @@
+{
+  "astroAudit": {
+    "realMode": "REAL_TIME",
+    "realTime": "17:20:21",
+    "realDate": "2026-11-27",
+    "resetBackMode": "REAL_TIME",
+    "sunrise": "06:27",
+    "sunset": "17:40",
+    "morningSunX": 0.676,
+    "afternoonSunX": -0.829,
+    "lunarDate1": {
+      "name": "Full Moon",
+      "illum": 99,
+      "el": 68.59
+    },
+    "lunarDate2": {
+      "name": "New Moon",
+      "illum": 0,
+      "el": -66.38
+    },
+    "cloudOffset": 3.7664999999999975,
+    "mem": {
+      "geometries": 133,
+      "textures": 93
+    }
+  },
+  "startMem": {
+    "mem": {
+      "geometries": 133,
+      "textures": 93
+    },
+    "programs": 78,
+    "heapMb": 136.66
+  },
+  "endMem": {
+    "mem": {
+      "geometries": 133,
+      "textures": 93
+    },
+    "programs": 119,
+    "heapMb": 115.07
+  },
+  "cycleLogs": [
+    {
+      "sec": 5,
+      "time": "06:01:10",
+      "date": "2026-11-27",
+      "elev": -6.6,
+      "fps": 60,
+      "counts": {
+        "pigeons": 9,
+        "eagles": 1,
+        "parrots": 0,
+        "phoenix": 0,
+        "total": 10
+      },
+      "wildlife": {
+        "solarElevationDeg": -6.58,
+        "airbornePigeons": 0,
+        "approachingPigeons": 3,
+        "landingPigeons": 1,
+        "perchedPigeons": 5,
+        "takingOffPigeons": 0,
+        "eagleLifecycle": "DEPARTING",
+        "eagleVisibleInScene": true
+      },
+      "mem": {
+        "geometries": 133,
+        "textures": 93
+      },
+      "programs": 78
+    },
+    {
+      "sec": 10,
+      "time": "11:50:21",
+      "date": "2026-11-27",
+      "elev": 51.7,
+      "fps": 60,
+      "counts": {
+        "pigeons": 9,
+        "eagles": 1,
+        "parrots": 0,
+        "phoenix": 0,
+        "total": 10
+      },
+      "wildlife": {
+        "solarElevationDeg": 51.67,
+        "airbornePigeons": 5,
+        "approachingPigeons": 1,
+        "landingPigeons": 0,
+        "perchedPigeons": 3,
+        "takingOffPigeons": 0,
+        "eagleLifecycle": "ARRIVING",
+        "eagleVisibleInScene": true
+      },
+      "mem": {
+        "geometries": 133,
+        "textures": 93
+      },
+      "programs": 119
+    },
+    {
+      "sec": 15,
+      "time": "17:50:21",
+      "date": "2026-11-27",
+      "elev": -3.1,
+      "fps": 60,
+      "counts": {
+        "pigeons": 9,
+        "eagles": 1,
+        "parrots": 0,
+        "phoenix": 0,
+        "total": 10
+      },
+      "wildlife": {
+        "solarElevationDeg": -3.13,
+        "airbornePigeons": 0,
+        "approachingPigeons": 6,
+        "landingPigeons": 0,
+        "perchedPigeons": 3,
+        "takingOffPigeons": 0,
+        "eagleLifecycle": "DEPARTING",
+        "eagleVisibleInScene": true
+      },
+      "mem": {
+        "geometries": 133,
+        "textures": 93
+      },
+      "programs": 119
+    },
+    {
+      "sec": 20,
+      "time": "23:51:32",
+      "date": "2026-11-27",
+      "elev": -85.2,
+      "fps": 60,
+      "counts": {
+        "pigeons": 9,
+        "eagles": 1,
+        "parrots": 0,
+        "phoenix": 0,
+        "total": 10
+      },
+      "wildlife": {
+        "solarElevationDeg": -85.16,
+        "airbornePigeons": 0,
+        "approachingPigeons": 1,
+        "landingPigeons": 2,
+        "perchedPigeons": 6,
+        "takingOffPigeons": 0,
+        "eagleLifecycle": "DEPARTING",
+        "eagleVisibleInScene": true
+      },
+      "mem": {
+        "geometries": 133,
+        "textures": 93
+      },
+      "programs": 119
+    },
+    {
+      "sec": 25,
+      "time": "05:51:31",
+      "date": "2026-11-28",
+      "elev": -8.9,
+      "fps": 60,
+      "counts": {
+        "pigeons": 9,
+        "eagles": 1,
+        "parrots": 0,
+        "phoenix": 0,
+        "total": 10
+      },
+      "wildlife": {
+        "solarElevationDeg": -8.87,
+        "airbornePigeons": 0,
+        "approachingPigeons": 1,
+        "landingPigeons": 0,
+        "perchedPigeons": 8,
+        "takingOffPigeons": 0,
+        "eagleLifecycle": "DEPARTING",
+        "eagleVisibleInScene": true
+      },
+      "mem": {
+        "geometries": 133,
+        "textures": 93
+      },
+      "programs": 119
+    },
+    {
+      "sec": 30,
+      "time": "11:52:42",
+      "date": "2026-11-28",
+      "elev": 51.5,
+      "fps": 60,
+      "counts": {
+        "pigeons": 9,
+        "eagles": 1,
+        "parrots": 0,
+        "phoenix": 0,
+        "total": 10
+      },
+      "wildlife": {
+        "solarElevationDeg": 51.53,
+        "airbornePigeons": 8,
+        "approachingPigeons": 0,
+        "landingPigeons": 0,
+        "perchedPigeons": 1,
+        "takingOffPigeons": 0,
+        "eagleLifecycle": "ARRIVING",
+        "eagleVisibleInScene": true
+      },
+      "mem": {
+        "geometries": 133,
+        "textures": 93
+      },
+      "programs": 119
+    },
+    {
+      "sec": 35,
+      "time": "17:52:41",
+      "date": "2026-11-28",
+      "elev": -3.6,
+      "fps": 60,
+      "counts": {
+        "pigeons": 9,
+        "eagles": 1,
+        "parrots": 0,
+        "phoenix": 0,
+        "total": 10
+      },
+      "wildlife": {
+        "solarElevationDeg": -3.63,
+        "airbornePigeons": 0,
+        "approachingPigeons": 8,
+        "landingPigeons": 0,
+        "perchedPigeons": 1,
+        "takingOffPigeons": 0,
+        "eagleLifecycle": "DEPARTING",
+        "eagleVisibleInScene": true
+      },
+      "mem": {
+        "geometries": 133,
+        "textures": 93
+      },
+      "programs": 119
+    },
+    {
+      "sec": 40,
+      "time": "23:52:40",
+      "date": "2026-11-28",
+      "elev": -85.1,
+      "fps": 60,
+      "counts": {
+        "pigeons": 9,
+        "eagles": 1,
+        "parrots": 0,
+        "phoenix": 0,
+        "total": 10
+      },
+      "wildlife": {
+        "solarElevationDeg": -85.13,
+        "airbornePigeons": 0,
+        "approachingPigeons": 1,
+        "landingPigeons": 1,
+        "perchedPigeons": 7,
+        "takingOffPigeons": 0,
+        "eagleLifecycle": "DEPARTING",
+        "eagleVisibleInScene": true
+      },
+      "mem": {
+        "geometries": 133,
+        "textures": 93
+      },
+      "programs": 119
+    },
+    {
+      "sec": 45,
+      "time": "05:53:51",
+      "date": "2026-11-29",
+      "elev": -8.5,
+      "fps": 60,
+      "counts": {
+        "pigeons": 9,
+        "eagles": 1,
+        "parrots": 0,
+        "phoenix": 0,
+        "total": 10
+      },
+      "wildlife": {
+        "solarElevationDeg": -8.47,
+        "airbornePigeons": 0,
+        "approachingPigeons": 0,
+        "landingPigeons": 0,
+        "perchedPigeons": 9,
+        "takingOffPigeons": 0,
+        "eagleLifecycle": "DEPARTING",
+        "eagleVisibleInScene": true
+      },
+      "mem": {
+        "geometries": 133,
+        "textures": 93
+      },
+      "programs": 119
+    },
+    {
+      "sec": 50,
+      "time": "11:53:51",
+      "date": "2026-11-29",
+      "elev": 51.4,
+      "fps": 60,
+      "counts": {
+        "pigeons": 9,
+        "eagles": 1,
+        "parrots": 0,
+        "phoenix": 0,
+        "total": 10
+      },
+      "wildlife": {
+        "solarElevationDeg": 51.36,
+        "airbornePigeons": 9,
+        "approachingPigeons": 0,
+        "landingPigeons": 0,
+        "perchedPigeons": 0,
+        "takingOffPigeons": 0,
+        "eagleLifecycle": "ARRIVING",
+        "eagleVisibleInScene": true
+      },
+      "mem": {
+        "geometries": 133,
+        "textures": 93
+      },
+      "programs": 119
+    },
+    {
+      "sec": 55,
+      "time": "17:55:02",
+      "date": "2026-11-29",
+      "elev": -4.1,
+      "fps": 60,
+      "counts": {
+        "pigeons": 9,
+        "eagles": 1,
+        "parrots": 0,
+        "phoenix": 0,
+        "total": 10
+      },
+      "wildlife": {
+        "solarElevationDeg": -4.13,
+        "airbornePigeons": 0,
+        "approachingPigeons": 9,
+        "landingPigeons": 0,
+        "perchedPigeons": 0,
+        "takingOffPigeons": 0,
+        "eagleLifecycle": "DEPARTING",
+        "eagleVisibleInScene": true
+      },
+      "mem": {
+        "geometries": 133,
+        "textures": 93
+      },
+      "programs": 119
+    },
+    {
+      "sec": 60,
+      "time": "23:55:01",
+      "date": "2026-11-29",
+      "elev": -85.2,
+      "fps": 60,
+      "counts": {
+        "pigeons": 9,
+        "eagles": 1,
+        "parrots": 0,
+        "phoenix": 0,
+        "total": 10
+      },
+      "wildlife": {
+        "solarElevationDeg": -85.22,
+        "airbornePigeons": 0,
+        "approachingPigeons": 3,
+        "landingPigeons": 2,
+        "perchedPigeons": 4,
+        "takingOffPigeons": 0,
+        "eagleLifecycle": "DEPARTING",
+        "eagleVisibleInScene": true
+      },
+      "mem": {
+        "geometries": 133,
+        "textures": 93
+      },
+      "programs": 119
+    },
+    {
+      "sec": 62,
+      "time": "02:19:01",
+      "date": "2026-11-30",
+      "elev": -58,
+      "fps": 60,
+      "counts": {
+        "pigeons": 9,
+        "eagles": 1,
+        "parrots": 0,
+        "phoenix": 0,
+        "total": 10
+      },
+      "wildlife": {
+        "solarElevationDeg": -58.02,
+        "airbornePigeons": 0,
+        "approachingPigeons": 1,
+        "landingPigeons": 2,
+        "perchedPigeons": 6,
+        "takingOffPigeons": 0,
+        "eagleLifecycle": "DEPARTING",
+        "eagleVisibleInScene": true
+      },
+      "mem": {
+        "geometries": 133,
+        "textures": 93
+      },
+      "programs": 119
+    }
+  ],
+  "videos": {
+    "daytimeExplorationBytes": 12942074,
+    "nighttimeExplorationBytes": 7999863,
+    "acceleratedCycleBytes": 11793186
+  }
+}

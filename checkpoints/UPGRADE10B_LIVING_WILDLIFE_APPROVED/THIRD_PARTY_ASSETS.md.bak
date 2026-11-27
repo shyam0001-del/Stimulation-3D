@@ -1,0 +1,68 @@
+# Third-Party 3D Assets & Attributions
+
+This document records third-party 3D models, textures, animations, and sound assets used in the **CVR College of Engineering 3D Campus Sandbox**, along with their respective authors, sources, licenses, and technical modifications.
+
+---
+
+## 1. Low-Poly Tree Asset (Controlled Avenue Upgrade)
+
+- **Asset Title**: Tree low poly lowpoly
+- **Author**: 00amza ([Sketchfab Profile](https://sketchfab.com/00amza))
+- **Source**: [Sketchfab 3D Model](https://sketchfab.com/3d-models/tree-low-poly-lowpoly-73201f05280d48dcb10ed4ca362d69f8)
+- **License**: [Creative Commons Attribution 4.0 International (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/)
+- **Summary of Asset**:
+  - Contains two distinct tree variants (Variant 1: Spreading mature crown, 816 triangles; Variant 2: Upright pyramidal crown, 813 triangles).
+  - Single shared $256 \times 256$ RGBA texture atlas (`Tree_1_baseColor.png`) covering bark and leaf cards.
+- **Modifications Applied**:
+  1. **Hierarchy Separation**: Separated the dual-tree combined scene into two standalone origin-aligned GLB models (`tree_variant_1.glb` and `tree_variant_2.glb`).
+  2. **Coordinate Alignment**: Normalized coordinates to metric units (1 unit = 1 meter), with the trunk base centered at ground level $(X=0, Y=0, Z=0)$.
+  3. **Material & Foliage Optimization**:
+     - Converted material alpha mode from transparent blending (`alphaMode: "BLEND"`) to alpha cutout masking (`alphaTest: 0.5`, `depthWrite: true`, `alphaToCoverage: true`).
+     - Enabled two-sided rendering (`side: THREE.DoubleSide`) for natural foliage density and visibility from below.
+     - Preserved shadow casting and shadow receiving on both trunk and canopy.
+  4. **Instanced Rendering Integration**:
+     - Deployed via `THREE.InstancedMesh` along the Central 12M Spine Avenue for minimal draw call overhead.
+
+---
+
+## 2. Streetlight Props
+
+- **Asset Title**: Streetlight Single / Double
+- **Author**: Quaternius ([Quaternius CC0 Library](https://quaternius.com/))
+- **License**: CC0 1.0 Universal (Public Domain)
+- **Modifications**: Rescaled to 6.5m metric height; added Rapier static cylinder colliders.
+
+---
+
+## 3. Vehicles
+
+- **Asset Titles**: Sedan, Van, Delivery Truck, Scooter
+- **Author**: Kenney / Quaternius
+- **License**: CC0 1.0 Universal (Public Domain)
+- **Modifications**: Fitted with Rapier wheel raycast physics and custom campus liveries.
+
+---
+
+## 4. Campus Wildlife — Pigeon (Upgrade 10A)
+
+- **Asset Title**: Animated Bird, Pigeon
+- **Author**: dudecon ([Sketchfab Profile](https://sketchfab.com/dudecon))
+- **Source**: [Sketchfab 3D Model](https://sketchfab.com/3d-models/animated-bird-pigeon-797d27b68af3453e865149435df6aa30)
+- **License**: [Creative Commons Attribution 4.0 International (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/)
+- **Summary of Asset**:
+  - Single rigged `SkinnedMesh` (`1,482` vertices, `710` triangles) with 5 skeletal animations (`BirdRig|Flapping`, `BirdRig|Gliding`, `BirdRig|Landing`, `BirdRig|Standing Idle`, `BirdRig|Takeoff`) and natural pigeon plumage texture (`Material.002`).
+- **Modifications Applied**:
+  - Normalized scale dynamically to real-world Indian Rock Pigeon (*Columba livia*) wingspan (`~0.62 m`) and standing body length (`~0.337 m`), preserved natural plumage colors with sRGB texture calibration and matte feather roughness, and integrated multi-bird flight, branch landing, perching, and takeoff lifecycles in `BirdWildlifeSystem.ts`.
+
+---
+
+## 5. Campus Wildlife — Soaring Eagle (Upgrade 10B)
+
+- **Asset Title**: Animated Eagle
+- **Author**: Clement Abai ([Sketchfab Profile](https://sketchfab.com/clement.abai))
+- **Source**: [Sketchfab 3D Model](https://sketchfab.com/3d-models/animated-eagle-de73b663acbc426e8e6c107fd25e08cd)
+- **License**: [Creative Commons Attribution 4.0 International (CC BY 4.0)](http://creativecommons.org/licenses/by/4.0/)
+- **Summary of Asset**:
+  - Single rigged `SkinnedMesh` (`3,858` triangles, `87` bones) with flapping/soaring animation (`motion4`) and realistic raptor feather texture.
+- **Modifications Applied**:
+  - Recentered mesh pivot, switched feather transparency to crisp `alphaTest` cutout, calibrated wingspan to `~1.85 m`, and integrated high-altitude thermal soaring in `BirdWildlifeSystem.ts`.

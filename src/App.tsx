@@ -9,7 +9,7 @@ const INITIAL_GAME_STATE: GameState = {
   fps: 60,
   currentZone: 'Main Entrance Gate & Bus Bay',
   zoneDescription: 'Sandstone Monument, CVR Medallion, Wrought-Iron Gates & North Bus Bay',
-  playerPosition: { x: 25, y: 1.5, z: -168 },
+  playerPosition: { x: 25.0, y: 1.0, z: -184.0 },
   playerRotationY: 0,
   playerSpeed: 0,
   isSprinting: false,
@@ -142,6 +142,27 @@ export const App: React.FC = () => {
     setIsInitialLaunch(false);
   }, []);
 
+  const handleSetRealTime = useCallback(() => {
+    engineRef.current?.setRealTimeMode();
+  }, []);
+
+  const handlePreviewMinutes = useCallback((totalMinutes: number) => {
+    const wrapped = ((Math.floor(totalMinutes) % 1440) + 1440) % 1440;
+    const hours = Math.floor(wrapped / 60);
+    const minutes = wrapped % 60;
+    engineRef.current?.setTimePreview(hours, minutes, 0);
+  }, []);
+
+  const handleToggleAccelerated = useCallback(() => {
+    const engine = engineRef.current;
+    if (!engine) return;
+    if (engine.dayNightCycle.getMode() === 'ACCELERATED') {
+      engine.setRealTimeMode();
+    } else {
+      engine.setAcceleratedDayNight(60);
+    }
+  }, []);
+
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-slate-950 font-sans select-none">
       {/* 3D WebGL Canvas */}
@@ -188,6 +209,9 @@ export const App: React.FC = () => {
           onRequestPointerLock={handleRequestPointerLock}
           onTeleport={handleTeleport}
           onOpenCharacterSelect={() => setIsCharacterModalOpen(true)}
+          onSetRealTime={handleSetRealTime}
+          onPreviewMinutes={handlePreviewMinutes}
+          onToggleAccelerated={handleToggleAccelerated}
         />
       )}
 
